@@ -2,6 +2,8 @@ package com.telemetrypro.app
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.content.res.Configuration
+import android.os.Build
 import java.util.Locale
 
 /**
@@ -26,27 +28,38 @@ object LocaleHelper {
 
     fun getLanguage(context: Context): String {
         init(context)
-        return prefs!!.getString(KEY_LANG, DEFAULT_LANG) ?: DEFAULT_LANG
+        return prefs?.getString(KEY_LANG, DEFAULT_LANG) ?: DEFAULT_LANG
     }
 
     fun setLanguage(context: Context, lang: String) {
         init(context)
-        prefs!!.edit().putString(KEY_LANG, lang).apply()
+        prefs?.edit()?.putString(KEY_LANG, lang)?.apply()
     }
 
     fun isZh(context: Context): Boolean = getLanguage(context) == "zh"
 
     /**
      * Wrap a context with the stored locale for proper resource resolution.
+     * Uses safe Configuration copy to avoid modifying the base config.
      */
     fun wrapContext(context: Context): Context {
-        val lang = getLanguage(context)
-        val locale = Locale(lang)
-        Locale.setDefault(locale)
+        return try {
+            val lang = getLanguage(context)
+            val locale = Locale(lang)
+            Locale.setDefault(locale)
 
-        val config = context.resources.configuration
-        config.setLocale(locale)
+            val config = Configuration(context.resources.configuration)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                config.setLocale(locale)
+            } else {
+                @Suppress("DEPRECATION")
+                config.locale = locale
+            }
 
-        return context.createConfigurationContext(config)
+            context.createConfigurationContext(config)
+        } catch (e: Exception) {
+            // Fallback: return unwrapped context on any configuration error
+            context
+        }
     }
 }

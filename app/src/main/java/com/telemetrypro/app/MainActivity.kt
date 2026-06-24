@@ -33,10 +33,14 @@ import com.telemetrypro.app.viewmodel.GpsViewModel
 class MainActivity : ComponentActivity() {
 
     override fun attachBaseContext(newBase: Context?) {
-        val wrapped = if (newBase != null) {
-            LocaleHelper.wrapContext(newBase)
-        } else newBase
-        super.attachBaseContext(wrapped)
+        try {
+            val wrapped = if (newBase != null) {
+                LocaleHelper.wrapContext(newBase)
+            } else newBase
+            super.attachBaseContext(wrapped)
+        } catch (e: Exception) {
+            super.attachBaseContext(newBase)
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

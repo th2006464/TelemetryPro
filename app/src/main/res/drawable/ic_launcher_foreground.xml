@@ -4,30 +4,55 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Background circle -->
-    <path
-        android:fillColor="#FFD700"
-        android:pathData="M54,54m-40,0a40,40 0,1 1,80 0a40,40 0,1 1,-80 0"/>
-    <!-- Satellite body -->
-    <path
-        android:fillColor="#131313"
-        android:pathData="M42,40l24,14l-24,14z"/>
-    <!-- Solar panels -->
-    <path
-        android:fillColor="#131313"
-        android:pathData="M36,52l6,4l-0.5,8l-5.5,-12z"/>
-    <path
-        android:fillColor="#131313"
-        android:pathData="M66,52l-6,4l0.5,8l5.5,-12z"/>
-    <!-- Signal waves -->
+    <!-- Outer glow ring -->
     <path
         android:fillColor="#00000000"
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="1.5"
-        android:pathData="M54,18Q62,26 62,34"/>
+        android:strokeColor="#4FC3F7"
+        android:strokeWidth="2"
+        android:strokeAlpha="0.4"
+        android:pathData="M54,54m-28,0a28,28 0,1 1,56 0a28,28 0,1 1,-56 0"/>
+    <!-- Middle ring -->
     <path
         android:fillColor="#00000000"
-        android:strokeColor="#FFFFFF"
+        android:strokeColor="#4FC3F7"
         android:strokeWidth="1.5"
-        android:pathData="M54,14Q66,26 66,38"/>
+        android:strokeAlpha="0.25"
+        android:pathData="M54,54m-38,0a38,38 0,1 1,76 0a38,38 0,1 1,-76 0"/>
+    <!-- Satellite body - diamond/hex shape -->
+    <path
+        android:fillColor="#4FC3F7"
+        android:pathData="M54,28l18,12l-18,12l-18,-12z"/>
+    <!-- Inner detail -->
+    <path
+        android:fillColor="#131313"
+        android:pathData="M54,34l10,8l-10,8l-10,-8z"/>
+    <!-- Left solar panel -->
+    <path
+        android:fillColor="#78DC77"
+        android:pathData="M28,40l8,3l-0.5,8l-7.5,-11z"/>
+    <!-- Right solar panel -->
+    <path
+        android:fillColor="#78DC77"
+        android:pathData="M80,40l-8,3l0.5,8l7.5,-11z"/>
+    <!-- Signal wave 1 -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#E9C400"
+        android:strokeWidth="2"
+        android:strokeAlpha="0.8"
+        android:pathData="M54,8Q65,22 68,38"/>
+    <!-- Signal wave 2 -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#E9C400"
+        android:strokeWidth="2"
+        android:strokeAlpha="0.5"
+        android:pathData="M54,4Q72,22 76,42"/>
+    <!-- Signal wave 3 -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#E9C400"
+        android:strokeWidth="2"
+        android:strokeAlpha="0.3"
+        android:pathData="M54,0Q80,22 84,46"/>
 </vector>

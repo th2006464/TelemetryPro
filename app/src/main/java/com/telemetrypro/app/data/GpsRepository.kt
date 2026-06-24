@@ -27,8 +27,11 @@ import kotlinx.coroutines.flow.asStateFlow
  */
 class GpsRepository(private val context: Context) {
 
-    private val locationManager: LocationManager =
-        context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+    private val locationManager: LocationManager? = try {
+        context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+    } catch (e: Exception) {
+        null
+    }
 
     /** Whether network-assisted (AGPS) mode is enabled */
     var onlineMode: Boolean = false
@@ -112,7 +115,7 @@ class GpsRepository(private val context: Context) {
 
     @SuppressLint("MissingPermission")
     fun start() {
-        val lm = locationManager
+        val lm = locationManager ?: return
         try {
             // GPS provider — always active
             if (LocationManagerCompat.hasProvider(lm, LocationManager.GPS_PROVIDER)) {
@@ -155,11 +158,12 @@ class GpsRepository(private val context: Context) {
     }
 
     fun stop() {
-        locationManager.removeUpdates(locationListener)
+        val lm = locationManager ?: return
+        lm.removeUpdates(locationListener)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            locationManager.unregisterGnssStatusCallback(gnssCallback)
+            lm.unregisterGnssStatusCallback(gnssCallback)
         }
-        locationManager.removeNmeaListener(nmeaListener)
+        lm.removeNmeaListener(nmeaListener)
     }
 
     /**

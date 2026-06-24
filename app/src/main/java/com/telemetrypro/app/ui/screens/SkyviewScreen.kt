@@ -16,9 +16,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.telemetrypro.app.LocaleHelper
 import com.telemetrypro.app.R
 import com.telemetrypro.app.data.LocationState
 import com.telemetrypro.app.data.LockStatus
@@ -57,24 +61,38 @@ fun SkyviewScreen(
         )
 
         if (state.constellationStats.isNotEmpty()) {
+            val isZh = LocaleHelper.isZh(LocalContext.current)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    .padding(horizontal = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 state.constellationStats.forEach { stat ->
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Canvas(modifier = Modifier.size(12.dp)) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.width(IntrinsicSize.Min)
+                    ) {
+                        Canvas(modifier = Modifier.size(10.dp)) {
                             drawCircle(color = stat.constellation.color)
                         }
                         Text(
                             stat.constellation.label,
                             style = CodeSm,
-                            color = stat.constellation.color
+                            color = stat.constellation.color,
+                            fontWeight = FontWeight.Bold
                         )
                         Text(
-                            "${stat.totalVisible}",
+                            if (isZh) stat.constellation.countryZh else stat.constellation.countryEn,
+                            style = TextStyle(
+                                fontFamily = JetBrainsMonoFamily,
+                                fontSize = 9.sp,
+                                lineHeight = 12.sp
+                            ),
+                            color = OnSurfaceVariant.copy(alpha = 0.6f)
+                        )
+                        Text(
+                            "${stat.totalVisible}⬡",
                             style = TelemetryMd,
                             color = stat.constellation.color,
                             fontWeight = FontWeight.Bold
