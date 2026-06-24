@@ -441,7 +441,7 @@ fun SettingsScreen(
             )
         }
 
-        // ---- Privacy ----
+        // ---- Project & Contact ----
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -458,11 +458,27 @@ fun SettingsScreen(
                     style = BodyMd,
                     color = OnSurfaceVariant
                 )
-                Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text(stringResource(R.string.settings_privacy_protocol), style = CodeSm, color = PrimaryFixedDim)
-                    Text(stringResource(R.string.settings_system_manifest), style = CodeSm, color = PrimaryFixedDim)
+                Spacer(Modifier.height(12.dp))
+                // Project URL
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        stringResource(R.string.settings_project_url) + ": ",
+                        style = CodeSm,
+                        color = PrimaryFixedDim
+                    )
+                    Text(
+                        stringResource(R.string.settings_project_url_value),
+                        style = CodeSm,
+                        color = OnSurfaceVariant
+                    )
                 }
+                Spacer(Modifier.height(4.dp))
+                // Contact
+                Text(
+                    stringResource(R.string.settings_contact_title) + ": " + stringResource(R.string.settings_contact_wechat),
+                    style = CodeSm,
+                    color = OnSurfaceVariant
+                )
             }
         }
 

@@ -89,8 +89,10 @@
     <string name="settings_theme_disabled">野外模式下禁用标准主题。</string>
     <string name="settings_privacy_title">纯本地 &amp; 离线</string>
     <string name="settings_privacy_desc">TELEMETRY PRO 不会传输任何个人数据。所有 NMEA 语句、坐标日志和地图缓存均仅存储在您的设备上。</string>
-    <string name="settings_privacy_protocol">隐私协议</string>
-    <string name="settings_system_manifest">系统清单</string>
+    <string name="settings_project_url">项目地址</string>
+    <string name="settings_project_url_value">github.com/th2006464/TelemetryPro</string>
+    <string name="settings_contact_title">联系我们</string>
+    <string name="settings_contact_wechat">微信：Fox_Tang</string>
 
     <!-- GPS Permission -->
     <!-- Constellation -->

@@ -89,8 +89,10 @@
     <string name="settings_theme_disabled">Standard themes disabled in field mode.</string>
     <string name="settings_privacy_title">Purely Local &amp; Offline</string>
     <string name="settings_privacy_desc">TELEMETRY PRO transmits no personal data. All NMEA sentences, coordinate logs, and mapping caches are stored exclusively on your device.</string>
-    <string name="settings_privacy_protocol">Privacy Protocol</string>
-    <string name="settings_system_manifest">System Manifest</string>
+    <string name="settings_project_url">Project URL</string>
+    <string name="settings_project_url_value">github.com/th2006464/TelemetryPro</string>
+    <string name="settings_contact_title">Contact Us</string>
+    <string name="settings_contact_wechat">WeChat: Fox_Tang</string>
 
     <!-- Constellation -->
     <string name="constellations_title">CONSTELLATIONS</string>

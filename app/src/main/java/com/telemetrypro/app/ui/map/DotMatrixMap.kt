@@ -13,8 +13,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
@@ -30,11 +28,9 @@ import com.telemetrypro.app.ui.theme.*
 import kotlin.math.*
 
 /**
- * Dot-matrix (halftone/stipple) world map rendered on Compose Canvas.
- * Supports pinch-to-zoom, pan, and shows GPS position as a glowing dot.
- *
- * Renders simplified continent outlines as dots, with cities as optional labels.
- * Color scheme follows Astra Precision dark aviation theme.
+ * Dot-matrix world map rendered on Compose Canvas.
+ * Uses 126x60 grid data from NTag/dotted-map (Mercator projection).
+ * Supports pinch-to-zoom, pan, GPS position marker, and city labels.
  */
 @Composable
 fun DotMatrixMap(
@@ -45,12 +41,10 @@ fun DotMatrixMap(
     modifier: Modifier = Modifier,
     mapLabel: String = ""
 ) {
-    // Zoom and pan state
     var scale by remember { mutableFloatStateOf(1.0f) }
     var offsetX by remember { mutableFloatStateOf(0f) }
     var offsetY by remember { mutableFloatStateOf(0f) }
 
-    // Animation for GPS dot pulse
     val infiniteTransition = rememberInfiniteTransition(label = "gpcdot")
     val pulseRadius by infiniteTransition.animateFloat(
         initialValue = 4f,
@@ -61,7 +55,6 @@ fun DotMatrixMap(
         ),
         label = "pulse"
     )
-
     val pulseAlpha by infiniteTransition.animateFloat(
         initialValue = 0.6f,
         targetValue = 0.1f,
@@ -72,7 +65,6 @@ fun DotMatrixMap(
         label = "pulseAlpha"
     )
 
-    val density = LocalDensity.current
     val textMeasurer = rememberTextMeasurer()
 
     Box(
@@ -81,7 +73,6 @@ fun DotMatrixMap(
             .border(1.dp, SurfaceVariant, RoundedCornerShape(12.dp))
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Map label bar
             if (mapLabel.isNotEmpty()) {
                 Box(
                     modifier = Modifier
@@ -91,23 +82,20 @@ fun DotMatrixMap(
                 ) {
                     Text(
                         text = mapLabel,
-                        style = com.telemetrypro.app.ui.theme.LabelCaps,
+                        style = LabelCaps,
                         color = OnSurfaceVariant
                     )
                 }
             }
 
-            // Map canvas
             Canvas(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
                     .padding(8.dp)
                     .pointerInput(Unit) {
-                        detectTransformGestures { centroid, pan, zoom, _ ->
-                            // Clamp scale between 0.5x and 5x
-                            val newScale = (scale * zoom).coerceIn(0.5f, 5f)
-                            scale = newScale
+                        detectTransformGestures { _, pan, zoom, _ ->
+                            scale = (scale * zoom).coerceIn(0.5f, 5f)
                             offsetX += pan.x
                             offsetY += pan.y
                         }
@@ -115,48 +103,72 @@ fun DotMatrixMap(
             ) {
                 val canvasW = size.width
                 val canvasH = size.height
-                val centerX = canvasW / 2f + offsetX
-                val centerY = canvasH / 2f + offsetY
 
-                // Equirectangular projection: x = lon, y = -lat (inverted for Canvas)
-                val mapScale = min(canvasW / 360f, canvasH / 180f) * scale
+                // Mercator projection: lon directly maps to x, lat transforms for y
+                // Map lon [-180, 180] → x [0, 126]; lat [85, -85] → y [0, 60]
+                // In Mercator: y = 60 * (1 - (ln(tan(π/4 + lat*π/360)) / ln(tan(π/4 + 85°*π/360)))) / 2
 
-                // Draw continent dots
-                for (continent in WorldMapData.continents) {
-                    for (polygon in continent.polygons) {
-                        drawStippledOutline(
-                            points = polygon.points,
-                            centerX = centerX,
-                            centerY = centerY,
-                            mapScale = mapScale,
-                            canvasW = canvasW,
-                            canvasH = canvasH
-                        )
+                val maxLatRad = (85.0 * PI / 180.0)
+                val mercMax = ln(tan(PI / 4 + maxLatRad / 2))
+
+                fun mercatorY(latDeg: Double): Float {
+                    val latRad = (latDeg * PI / 180.0).coerceIn(-maxLatRad, maxLatRad)
+                    val yMerc = ln(tan(PI / 4 + latRad / 2))
+                    return (60f * (1f - yMerc.toFloat() / mercMax.toFloat()) / 2f)
+                }
+
+                // Grid dot rendering
+                val cellW = canvasW / 126f * scale
+                val gridRatio = canvasH / 60f / (canvasW / 126f)
+                val cellH = cellW * gridRatio
+
+                val gridStartX = offsetX % cellW
+                val gridStartY = offsetY % cellH
+
+                // Determine visible grid range
+                val colStart = max(0, ((-gridStartX / cellW).toInt() - 1).coerceIn(0, 125))
+                val colEnd = min(125, ((canvasW - gridStartX) / cellW).toInt() + 1)
+                val rowStart = max(0, ((-gridStartY / cellH).toInt() - 1).coerceIn(0, 59))
+                val rowEnd = min(59, ((canvasH - gridStartY) / cellH).toInt() + 1)
+
+                // Dot size: proportional to cell, with min/max
+                val dotRadius = (cellW * 0.22f).coerceIn(1f, 4f)
+                val dotColor = OnSurfaceVariant.copy(alpha = 0.45f)
+
+                // Draw land dots from grid
+                for (y in rowStart..rowEnd) {
+                    for (x in colStart..colEnd) {
+                        if (WorldMapGrid.isLand(x, y)) {
+                            val px = gridStartX + x * cellW + cellW / 2
+                            val py = gridStartY + y * cellH + cellH / 2
+                            drawCircle(
+                                color = dotColor,
+                                radius = dotRadius,
+                                center = Offset(px, py)
+                            )
+                        }
                     }
                 }
 
-                // Draw cities if zoomed in enough
+                // City labels
                 if (showCities && scale >= 0.8f) {
                     for (city in WorldMapData.majorCities) {
-                        val px = centerX + city.lon * mapScale
-                        val py = centerY - city.lat * mapScale
+                        val gridX = (city.lon + 180f) / 360f * 126f
+                        val gridY = mercatorY(city.lat.toDouble())
+                        val cityPx = gridStartX + gridX * cellW + cellW / 2
+                        val cityPy = gridStartY + gridY * cellH + cellH / 2
 
-                        // Only draw if in visible area
-                        if (px in -50f..(canvasW + 50f) && py in -50f..(canvasH + 50f)) {
+                        if (cityPx in -50f..(canvasW + 50f) && cityPy in -50f..(canvasH + 50f)) {
                             val alpha = when {
                                 scale < 1.0f -> 0.3f
                                 scale < 1.5f -> 0.5f
                                 else -> 0.7f
                             }
-
-                            // City dot
                             drawCircle(
                                 color = OnSurfaceVariant.copy(alpha = alpha),
-                                radius = 1.8f,
-                                center = Offset(px, py)
+                                radius = 2f,
+                                center = Offset(cityPx, cityPy)
                             )
-
-                            // City label
                             if (scale >= 1.3f) {
                                 val textLayoutResult = textMeasurer.measure(
                                     text = city.name,
@@ -169,8 +181,8 @@ fun DotMatrixMap(
                                 drawText(
                                     textLayoutResult = textLayoutResult,
                                     topLeft = Offset(
-                                        px - textLayoutResult.size.width / 2f,
-                                        py + 4f
+                                        cityPx - textLayoutResult.size.width / 2f,
+                                        cityPy + 4f
                                     )
                                 )
                             }
@@ -178,60 +190,33 @@ fun DotMatrixMap(
                     }
                 }
 
-                // Draw GPS position marker if fixed
+                // GPS position marker
                 if (isFixed && latitude != 0.0 && longitude != 0.0) {
-                    val posX = centerX + longitude.toFloat() * mapScale
-                    val posY = centerY - latitude.toFloat() * mapScale
+                    val posGridX = ((longitude + 180f) / 360f * 126f).toFloat()
+                    val posGridY = mercatorY(latitude)
+                    val posX = gridStartX + posGridX * cellW + cellW / 2
+                    val posY = gridStartY + posGridY * cellH + cellH / 2
 
-                    // Outer pulse ring
+                    // Pulse ring
                     drawCircle(
                         color = PrimaryFixed.copy(alpha = pulseAlpha),
                         radius = pulseRadius,
                         center = Offset(posX, posY)
                     )
+                    // Inner dot
+                    drawCircle(color = Primary, radius = 5f, center = Offset(posX, posY))
+                    // Core
+                    drawCircle(color = PrimaryFixed, radius = 2.5f, center = Offset(posX, posY))
 
-                    // Inner filled dot
-                    drawCircle(
-                        color = Primary,
-                        radius = 5f,
-                        center = Offset(posX, posY)
-                    )
-
-                    // Core bright spot
-                    drawCircle(
-                        color = PrimaryFixed,
-                        radius = 2.5f,
-                        center = Offset(posX, posY)
-                    )
-
-                    // Crosshair lines
+                    // Crosshair
                     val crossLen = 10f
-                    drawLine(
-                        color = PrimaryFixed.copy(alpha = 0.6f),
-                        start = Offset(posX - crossLen, posY),
-                        end = Offset(posX - 3f, posY),
-                        strokeWidth = 1f
-                    )
-                    drawLine(
-                        color = PrimaryFixed.copy(alpha = 0.6f),
-                        start = Offset(posX + 3f, posY),
-                        end = Offset(posX + crossLen, posY),
-                        strokeWidth = 1f
-                    )
-                    drawLine(
-                        color = PrimaryFixed.copy(alpha = 0.6f),
-                        start = Offset(posX, posY - crossLen),
-                        end = Offset(posX, posY - 3f),
-                        strokeWidth = 1f
-                    )
-                    drawLine(
-                        color = PrimaryFixed.copy(alpha = 0.6f),
-                        start = Offset(posX, posY + 3f),
-                        end = Offset(posX, posY + crossLen),
-                        strokeWidth = 1f
-                    )
+                    val crossColor = PrimaryFixed.copy(alpha = 0.6f)
+                    drawLine(crossColor, Offset(posX - crossLen, posY), Offset(posX - 3f, posY), 1f)
+                    drawLine(crossColor, Offset(posX + 3f, posY), Offset(posX + crossLen, posY), 1f)
+                    drawLine(crossColor, Offset(posX, posY - crossLen), Offset(posX, posY - 3f), 1f)
+                    drawLine(crossColor, Offset(posX, posY + 3f), Offset(posX, posY + crossLen), 1f)
 
-                    // Coordinate label
+                    // Label
                     if (scale >= 0.8f) {
                         val coordText = String.format("%.2f°, %.2f°", latitude, longitude)
                         val textLayoutResult = textMeasurer.measure(
@@ -244,16 +229,12 @@ fun DotMatrixMap(
                         )
                         drawText(
                             textLayoutResult = textLayoutResult,
-                            topLeft = Offset(
-                                posX - textLayoutResult.size.width / 2f,
-                                posY - 18f
-                            )
+                            topLeft = Offset(posX - textLayoutResult.size.width / 2f, posY - 18f)
                         )
                     }
                 }
             }
 
-            // Hint bar at bottom
             if (scale < 1.5f) {
                 Box(
                     modifier = Modifier
@@ -268,72 +249,6 @@ fun DotMatrixMap(
                         color = OnSurfaceVariant.copy(alpha = 0.5f)
                     )
                 }
-            }
-        }
-    }
-}
-
-/**
- * Draw continent outlines as a stippled/dot pattern.
- */
-private fun DrawScope.drawStippledOutline(
-    points: List<Pair<Float, Float>>,
-    centerX: Float,
-    centerY: Float,
-    mapScale: Float,
-    canvasW: Float,
-    canvasH: Float
-) {
-    if (points.size < 2) return
-
-    // Convert to canvas coordinates
-    val projected = points.map { (lon, lat) ->
-        Offset(
-            centerX + lon * mapScale,
-            centerY - lat * mapScale
-        )
-    }
-
-    // Draw dots along path segments
-    val dotSpacing = when {
-        mapScale < 0.5f -> 6f
-        mapScale < 1.0f -> 4f
-        mapScale < 2.0f -> 3f
-        else -> 2.5f
-    }
-
-    val dotRadius = when {
-        mapScale < 0.5f -> 0.8f
-        mapScale < 1.0f -> 1.2f
-        mapScale < 2.0f -> 1.4f
-        else -> 1.6f
-    }
-
-    val dotColor = OnSurfaceVariant.copy(alpha = 0.45f)
-
-    for (i in 0 until projected.size) {
-        val start = projected[i]
-        val end = projected[(i + 1) % projected.size]
-
-        val dx = end.x - start.x
-        val dy = end.y - start.y
-        val segLen = sqrt(dx * dx + dy * dy)
-
-        if (segLen < 1f) continue
-
-        val numDots = max(1, (segLen / dotSpacing).toInt())
-        for (j in 0..numDots) {
-            val t = j.toFloat() / numDots
-            val px = start.x + dx * t
-            val py = start.y + dy * t
-
-            // Only draw if in visible area (with margin)
-            if (px in -20f..(canvasW + 20f) && py in -20f..(canvasH + 20f)) {
-                drawCircle(
-                    color = dotColor,
-                    radius = dotRadius,
-                    center = Offset(px, py)
-                )
             }
         }
     }
