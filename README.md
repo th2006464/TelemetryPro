@@ -78,6 +78,166 @@ Each GNSS system is identified and colour-coded in every view:
 
 Identified via Android `GnssStatus.getConstellationType()` (API 26+).
 
+### Dot-Matrix World Map
+
+The dashboard features an embedded interactive world map rendered entirely in a Jetpack Compose `Canvas` — no network, no tile servers, no Google Maps. The map uses a dot-matrix grid with city labels, GPS position marker, and full pinch-zoom/pan gesture support.
+
+**Pipeline**: Polygon outlines → 126×60 binary grid → run-length-encoded bitmap → Canvas rendering
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│  1. WorldMapData.kt         2. WorldMapGrid.kt      3. Canvas        │
+│  ┌──────────────────┐      ┌──────────────────┐    ┌──────────────┐ │
+│  │ Simplified        │  →   │ 126×60 bitmap    │ → │ drawPoints() │ │
+│  │ continent polygons│      │ (RLE compressed) │    │ per visible  │ │
+│  │ (7 continents,    │      │ isLand(x,y): bool│    │ grid cell    │ │
+│  │  ~500 vertices)   │      │ generated offline│    │              │ │
+│  └──────────────────┘      └──────────────────┘    └──────────────┘ │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+#### Coordinate System
+
+| Property | Value |
+|:---|:---|
+| Grid dimensions | 126 columns × 60 rows |
+| Projection | Equirectangular (Plate Carrée) |
+| X-axis | -180° (col 0) → +180° (col 125), linear |
+| Y-axis | Mercator transform: `y = 60 × (1 - ln(tan(π/4 + φ/2)) / mercMax) / 2` |
+| Cell shape | Square: `cellW == cellH` guaranteed by fixed aspect ratio |
+| Canvas fit | 126:60 letterbox — pad shorter axis, never stretch |
+
+The Y-axis uses a Mercator projection to correct polar distortion inherent in equirectangular maps. Latitudes are clamped to ±85° to prevent the singularities at the poles, then mapped through the inverse Gudermannian function: `yMerc = ln(tan(π/4 + φ/2))`. The result is normalized to the 0–60 grid range, producing a visually familiar world map where Greenland and Antarctica appear proportionally sized.
+
+#### Fixed Aspect Ratio & Letterbox
+
+The map enforces a strict 126:60 (2.1:1) aspect ratio regardless of the available canvas space:
+
+```
+If canvasAspect > worldAspect (wide screen):
+  → Fit to canvas height, letterbox horizontally
+  → mapH = canvasH × scale, mapW = mapH × 2.1
+
+If canvasAspect < worldAspect (tall screen):
+  → Fit to canvas width, letterbox vertically
+  → mapW = canvasW × scale, mapH = mapW / 2.1
+
+Grid cell size:
+  cellW = mapW / 126, cellH = mapH / 60
+  Since mapW/mapH = 126/60 → cellW == cellH (square cells)
+```
+
+The letterbox region acts as a natural viewport — the map content is perfectly centered, with extra space rendered as the background color. This is the root fix for the "map distortion" issue that plagued earlier versions.
+
+#### GPS Position Marker
+
+When a GNSS fix is acquired, the user's position is drawn on the map with a distinctive glowing crosshair:
+
+- **Outer pulse ring** — 12px radius, Primary colour at 35% alpha
+- **Mid ring** — 5px solid Primary
+- **Core dot** — 2.5px PrimaryFixed (opaque)
+- **Crosshair** — 20px lines in cardinal directions, 60% alpha
+- **Coordinate label** — `lat, lon` in monospace font, scale-adaptive size (7–12sp)
+
+Position is mapped from WGS84 coordinates to canvas pixel coordinates through the same Mercator grid transform used for all map elements.
+
+#### Gesture Interaction
+
+```
+┌────────────────────────────────────────────────────┐
+│ detectTransformGestures()                           │
+│                                                     │
+│  Input: centroid(px), pan(dx,dy), zoom(factor)      │
+│                                                     │
+│  ┌─────────────┐    ┌──────────────────────┐        │
+│  │ Single finger│ →  │ offset += pan (drag)  │        │
+│  │ pan          │    │ clamp pan only        │        │
+│  └─────────────┘    └──────────────────────┘        │
+│                                                     │
+│  ┌─────────────┐    ┌──────────────────────┐        │
+│  │ Two-finger   │ →  │ Anchored zoom:        │        │
+│  │ pinch        │    │                       │        │
+│  │              │    │ actualZoom = newScale  │        │
+│  │              │    │             / oldScale │        │
+│  │              │    │                       │        │
+│  │              │    │ offset = centroid      │        │
+│  │              │    │   - newLeft            │        │
+│  │              │    │   - actualZoom         │        │
+│  │              │    │   × (centroid          │        │
+│  │              │    │      - oldLeft         │        │
+│  │              │    │      - offset)         │        │
+│  └─────────────┘    └──────────────────────┘        │
+│                                                     │
+│  Scale range: 0.5× – 5.0×                           │
+└────────────────────────────────────────────────────┘
+```
+
+**Anchored zoom** is the critical detail: when the scale changes, `mapLeft`/`mapTop` also change because the letterbox region shifts. The formula compensates for this shift, keeping the pinch centroid stationary relative to the map content. Without this compensation, the map would "drift" toward the top-left corner during zoom — a bug that persisted across v1.6.0–v1.6.3 and was finally resolved in v1.6.4.
+
+#### Auto-Centering
+
+On first draw, the map centers on the user's GPS position:
+- **Has fix** → center on actual `(latitude, longitude)`
+- **No fix** → fallback to China center (35°N, 105°E)
+- The `centeredOnFix` flag ensures centering executes exactly once per fix acquisition — subsequent pans are user-controlled
+
+#### City Labels (132 Cities)
+
+City markers appear in two visual layers, both scale-dependent:
+
+| Scale | Visibility |
+|:---|:---|
+| < 0.8× | Hidden (prevents clutter) |
+| 0.8× – 1.0× | Faint hollow circles only (30% alpha) |
+| 1.0× – 1.3× | Hollow circles (50% alpha) |
+| 1.3× – 1.5× | Circles + city name labels |
+| > 1.5× | Full labels at 70% alpha, adaptive font size |
+
+Label font size scales inversely with zoom: `(9 / scale).coerceIn(6sp, 11sp)` — labels shrink when zoomed out to prevent overlap, and grow when zoomed in for readability. Labels are vertically offset by 4px below the marker circle, horizontally centered.
+
+Coverage by region:
+
+| Region | Count | Examples |
+|:---|:---|:---|
+| China | 35 | Beijing, Shanghai, Chongqing, Wuhan, Chengdu, Harbin… |
+| East Asia | 6 | Tokyo, Seoul, Ulaanbaatar… |
+| Southeast Asia | 11 | Bangkok, Singapore, Jakarta, Manila, Hanoi… |
+| South Asia | 9 | Delhi, Mumbai, Dhaka, Colombo, Kathmandu… |
+| Central Asia | 5 | Tashkent, Astana, Bishkek… |
+| West Asia / Middle East | 15 | Dubai, Riyadh, Tehran, Baghdad, Istanbul… |
+| Europe | 27 | London, Paris, Berlin, Moscow, Rome, Madrid… |
+| Africa | 10 | Cairo, Lagos, Nairobi, Cape Town… |
+| North America | 11 | New York, Los Angeles, Toronto, Mexico City… |
+| South America | 8 | São Paulo, Buenos Aires, Lima, Bogotá… |
+| Oceania | 7 | Sydney, Melbourne, Auckland, Wellington… |
+
+City labels are rendered with `drawText()` using the Compose `TextMeasurer` — no `BasicText` composable overhead per label. Visibility is gated by both scale threshold and canvas bounds (culled if outside ±50px margin).
+
+#### Track Recording Path
+
+When the user records a track (via Settings → Track Recording), waypoints are drawn as:
+- **Path line** — Secondary (signal green) at 50% alpha, 1.5px stroke
+- **Start marker** — 4px filled circle, 80% alpha
+- **End marker** — 4px filled circle, PrimaryFixed (opaque safety yellow)
+
+#### Full-Screen Map
+
+Tapping the ⛶ button on the dashboard opens `FullscreenMapScreen`:
+- Forces **sensor landscape** orientation (`SCREEN_ORIENTATION_SENSOR_LANDSCAPE`)
+- Hides all UI chrome: title bar, pinch hint, rounded borders
+- `DotMatrixMap(isFullscreen = true)` renders a bare full-canvas map
+- Exits by back gesture or system back button, restoring portrait
+
+The full-screen variant reuses the identical `DotMatrixMap` composable — only the modifier and chrome differ, ensuring visual consistency.
+
+#### Data Files
+
+| File | Size | Role |
+|:---|:---|:---|
+| `WorldMapData.kt` | ~510 lines | 7 continent polygon outlines + 132 city coordinates |
+| `WorldMapGrid.kt` | ~120 lines | 126×60 RLE bitmap: `isLand(col, row)` for fast cell lookup |
+| `DotMatrixMap.kt` | ~335 lines | Canvas composable: projection, rendering, gesture handling |
+
 ### Architecture
 
 ```
@@ -129,8 +289,12 @@ TelemetryPro/
 │       │   │   └── GpsViewModel.kt      # Shared ViewModel
 │       │   └── ui/
 │       │       ├── theme/               # Astra Precision design tokens
-│       │       ├── components/          # 7 reusable widgets
-│       │       └── screens/             # 4 screens
+│       │       ├── components/          # Reusable widgets
+│       │       ├── map/                 # Dot-matrix world map
+│       │       │   ├── DotMatrixMap.kt   # Canvas + gestures + projection
+│       │       │   ├── WorldMapData.kt   # 7 continents + 132 cities
+│       │       │   └── WorldMapGrid.kt   # 126×60 RLE land bitmap
+│       │       └── screens/             # 5 screens
 │       └── res/
 ├── build.gradle.kts
 ├── settings.gradle.kts
@@ -178,6 +342,8 @@ cd TelemetryPro
 5. **Single ViewModel** — Four screens share one GPS data source; lifecycle managed in `MainActivity` not per-screen. Tab switching doesn't restart the GNSS engine.
 6. **Speed Noise** — `Location.getSpeed()` returns m/s with low-velocity jitter. Raw readings displayed; future improvement: exponential moving average filter.
 7. **Build on Bare JDK** — No Android Studio required. Key: `local.properties` → SDK root, `ANDROID_HOME` env, `gradle.properties` → `android.useAndroidX=true`.
+8. **Dot-Matrix Map Gesture Evolution** — The map gesture system evolved through 4 iterations: v1.4.2 removed the map from a ScrollView (to stop the parent intercepting touch events); v1.6.1 attempted manual `awaitPointerEventScope` low-level handling (abandoned — `awaitEachGesture` unavailable in Compose 1.5.x); v1.6.2 implemented anchored zoom but missed `mapLeft` compensation (causing top-left drift); v1.6.4 returned to `detectTransformGestures` and added full letterbox offset compensation, resolving all interaction bugs.
+9. **Negative Modulo Gotcha** — Kotlin's `%` operator returns negative values for negative operands (unlike Python/math). This caused the map grid to shift by exactly 48 columns in v1.6.3. Removing the modulo entirely and using raw offset values was the simplest fix.
 
 ### Permissions
 
@@ -251,6 +417,169 @@ MIT — see [LICENSE](LICENSE).
 
 通过 Android `GnssStatus.getConstellationType()`（API 26+）识别。
 
+### 点阵世界地图
+
+仪表盘内置一个完全由 Jetpack Compose `Canvas` 渲染的交互式世界地图 — 无需网络、无需瓦片服务器、无需 Google Maps。采用点阵网格 + 城市标签 + GPS 定位标记，并支持完整的双指缩放/单指拖动。
+
+**渲染管线**：多边形轮廓 → 126×60 二值网格 → 行程编码位图 → Canvas 渲染
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│  1. WorldMapData.kt         2. WorldMapGrid.kt      3. Canvas        │
+│  ┌──────────────────┐      ┌──────────────────┐    ┌──────────────┐ │
+│  │ 简化大陆          │  →   │ 126×60 位图      │ → │ drawPoints() │ │
+│  │ 多边形轮廓        │      │ (RLE 压缩)       │    │ 逐可见网格   │ │
+│  │ (7 大洲,          │      │ isLand(x,y):bool │    │ 单元绘制     │ │
+│  │  ~500 顶点)       │      │ 离线预生成       │    │              │ │
+│  └──────────────────┘      └──────────────────┘    └──────────────┘ │
+└──────────────────────────────────────────────────────────────────────┘
+```
+
+#### 坐标系统
+
+| 属性 | 值 |
+|:---|:---|
+| 网格尺寸 | 126 列 × 60 行 |
+| 投影方式 | 等距矩形 (Plate Carrée) |
+| X 轴 | -180° (第 0 列) → +180° (第 125 列)，线性映射 |
+| Y 轴 | 墨卡托变换：`y = 60 × (1 - ln(tan(π/4 + φ/2)) / mercMax) / 2` |
+| 网格单元 | 正方形：通过固定宽高比保证 `cellW == cellH` |
+| Canvas 适配 | 126:60 letterbox — 短边填充留白，永不拉伸 |
+
+Y 轴采用墨卡托投影来纠正等距矩形投影在极地附近的畸变。纬度被钳制在 ±85° 以避免极点的奇异性，然后通过逆 Gudermannian 函数映射：`yMerc = ln(tan(π/4 + φ/2))`。结果归一化到 0–60 的网格范围，呈现出视觉上熟悉的世界地图 — 格陵兰和南极洲的比例大小符合直觉。
+
+#### 固定宽高比与 Letterbox
+
+无论可用 Canvas 空间如何变化，地图始终保持 126:60 (2.1:1) 的固定宽高比：
+
+```
+若 canvasAspect > worldAspect (宽屏)：
+  → 按高度适配，水平 letterbox
+  → mapH = canvasH × scale, mapW = mapH × 2.1
+
+若 canvasAspect < worldAspect (竖屏)：
+  → 按宽度适配，垂直 letterbox
+  → mapW = canvasW × scale, mapH = mapW / 2.1
+
+网格单元尺寸：
+  cellW = mapW / 126, cellH = mapH / 60
+  由于 mapW/mapH = 126/60 → cellW == cellH (正方形单元)
+```
+
+Letterbox 区域作为天然的视口边界 — 地图内容完美居中，多余空间以背景色填充。这是解决早期版本"地图变形"问题的根本方案。
+
+#### GPS 定位标记
+
+当获取到 GNSS 定位时，用户位置以醒目的发光十字准星绘制在地图上：
+
+- **外层脉冲环** — 12px 半径，Primary 色 35% 透明度
+- **中层实心环** — 5px 实心 Primary
+- **核心圆点** — 2.5px PrimaryFixed（不透明）
+- **十字准星** — 四个方向各 10px，60% 透明
+- **坐标标签** — `lat, lon` 等宽字体，自适应大小 (7–12sp)
+
+位置从 WGS84 坐标通过墨卡托网格变换映射为 Canvas 像素坐标，与所有地图元素共用同一套投影算法。
+
+#### 手势交互
+
+```
+┌────────────────────────────────────────────────────┐
+│ detectTransformGestures()                           │
+│                                                     │
+│  输入: centroid(px), pan(dx,dy), zoom(factor)       │
+│                                                     │
+│  ┌─────────────┐    ┌──────────────────────┐        │
+│  │ 单指拖动     │ →  │ offset += pan (平移)  │        │
+│  │ pan          │    │ 纯偏移累加            │        │
+│  └─────────────┘    └──────────────────────┘        │
+│                                                     │
+│  ┌─────────────┐    ┌──────────────────────┐        │
+│  │ 双指捏合     │ →  │ 锚定缩放:             │        │
+│  │ pinch        │    │                       │        │
+│  │              │    │ actualZoom = newScale  │        │
+│  │              │    │             / oldScale │        │
+│  │              │    │                       │        │
+│  │              │    │ offset = centroid      │        │
+│  │              │    │   - newLeft            │        │
+│  │              │    │   - actualZoom         │        │
+│  │              │    │   × (centroid          │        │
+│  │              │    │      - oldLeft         │        │
+│  │              │    │      - offset)         │        │
+│  └─────────────┘    └──────────────────────┘        │
+│                                                     │
+│  缩放范围: 0.5× – 5.0×                               │
+└────────────────────────────────────────────────────┘
+```
+
+**锚定缩放**是关键细节：当 scale 改变时，`mapLeft`/`mapTop` 也会因 letterbox 区域变化而改变。公式补偿了这一偏移，使得双指中点在地图内容上保持静止。没有这个补偿，地图会在缩放时向屏幕左上角漂移 — 这个 bug 在 v1.6.0–v1.6.3 持续存在，最终在 v1.6.4 彻底修复。
+
+#### 自动居中
+
+首次绘制时，地图自动以 GPS 定位点为中心：
+
+- **已有定位** → 居中于实际 `(纬度, 经度)`
+- **尚未定位** → 回退居中于中国中心 (35°N, 105°E)
+- `centeredOnFix` 标志确保每次定位获取仅执行一次居中 — 后续拖动完全由用户控制
+
+#### 城市标签（132 个城市）
+
+城市标记以两个视觉层级呈现，均随缩放比例变化：
+
+| 缩放 | 可见性 |
+|:---|:---|
+| < 0.8× | 隐藏（避免杂乱） |
+| 0.8× – 1.0× | 仅显示半透明空心圆 (30% 透明) |
+| 1.0× – 1.3× | 空心圆 (50% 透明) |
+| 1.3× – 1.5× | 空心圆 + 城市名称标签 |
+| > 1.5× | 完整标签 70% 透明，自适应字号 |
+
+标签字号与缩放反向缩放：`(9 / scale).coerceIn(6sp, 11sp)` — 缩小时标签缩小防止重叠，放大时标签增大便于阅读。标签垂直偏移于标记圆下方 4px，水平居中。
+
+各区域覆盖：
+
+| 区域 | 数量 | 示例 |
+|:---|:---|:---|
+| 中国 | 35 | 北京、上海、重庆、武汉、成都、哈尔滨… |
+| 东亚 | 6 | 东京、首尔、乌兰巴托… |
+| 东南亚 | 11 | 曼谷、新加坡、雅加达、马尼拉、河内… |
+| 南亚 | 9 | 德里、孟买、达卡、科伦坡、加德满都… |
+| 中亚 | 5 | 塔什干、阿斯塔纳、比什凯克… |
+| 西亚/中东 | 15 | 迪拜、利雅得、德黑兰、巴格达、伊斯坦布尔… |
+| 欧洲 | 27 | 伦敦、巴黎、柏林、莫斯科、罗马、马德里… |
+| 非洲 | 10 | 开罗、拉各斯、内罗毕、开普敦… |
+| 北美洲 | 11 | 纽约、洛杉矶、多伦多、墨西哥城… |
+| 南美洲 | 8 | 圣保罗、布宜诺斯艾利斯、利马、波哥大… |
+| 大洋洲 | 7 | 悉尼、墨尔本、奥克兰、惠灵顿… |
+
+城市标签通过 Compose `TextMeasurer` 用 `drawText()` 渲染 — 每个标签无 `BasicText` 组合项开销。可见性由缩放阈值和 Canvas 边界双重控制（超出 ±50px 边距即剔除）。
+
+#### 轨迹记录路径
+
+当用户录制轨迹时（设置 → 轨迹录制），航点绘制为：
+
+- **路径线段** — Secondary（信号绿）50% 透明，1.5px 描边
+- **起点标记** — 4px 实心圆，80% 透明
+- **终点标记** — 4px 实心圆，PrimaryFixed（不透明安全黄）
+
+#### 全屏地图
+
+点击仪表盘上的 ⛶ 按钮打开 `FullscreenMapScreen`：
+
+- 强制**传感器横屏**方向 (`SCREEN_ORIENTATION_SENSOR_LANDSCAPE`)
+- 隐藏所有 UI 装饰：标题栏、缩放提示、圆角边框
+- `DotMatrixMap(isFullscreen = true)` 渲染纯 Canvas 全屏地图
+- 通过返回手势或系统返回键退出，恢复竖屏
+
+全屏模式复用相同的 `DotMatrixMap` 组件 — 仅修饰符和装饰不同，确保视觉一致性。
+
+#### 数据文件
+
+| 文件 | 大小 | 作用 |
+|:---|:---|:---|
+| `WorldMapData.kt` | ~510 行 | 7 大洲多边形轮廓 + 132 个城市坐标 |
+| `WorldMapGrid.kt` | ~120 行 | 126×60 RLE 位图：`isLand(col, row)` 高速网格查询 |
+| `DotMatrixMap.kt` | ~335 行 | Canvas 组件：投影、渲染、手势处理 |
+
 ### 架构
 
 ```
@@ -301,8 +630,12 @@ TelemetryPro/
 │       │   │   └── GpsViewModel.kt      # 共享 ViewModel
 │       │   └── ui/
 │       │       ├── theme/               # Astra Precision 设计令牌
-│       │       ├── components/          # 7 个可复用组件
-│       │       └── screens/             # 4 个页面
+│       │       ├── components/          # 可复用组件
+│       │       ├── map/                 # 点阵世界地图
+│       │       │   ├── DotMatrixMap.kt   # Canvas + 手势 + 投影
+│       │       │   ├── WorldMapData.kt   # 7 大洲 + 132 城市
+│       │       │   └── WorldMapGrid.kt   # 126×60 RLE 陆地位图
+│       │       └── screens/             # 5 个页面
 │       └── res/
 ├── build.gradle.kts
 ├── settings.gradle.kts
@@ -350,6 +683,8 @@ cd TelemetryPro
 5. **单一 ViewModel** — 四个页面共用同一个 GPS 数据源，生命周期由 `MainActivity` 统一管理，切换标签不重启 GNSS 引擎。
 6. **速度噪声** — `Location.getSpeed()` 返回 m/s，低速时有抖动。当前展示原始读数，后续优化方向：指数移动平均滤波。
 7. **纯 JDK 构建** — 无需 Android Studio。关键配置：`local.properties` 指向 SDK 根目录、`ANDROID_HOME` 环境变量、`gradle.properties` 设置 `android.useAndroidX=true`。
+8. **点阵地图手势演进** — 地图手势经历了四轮迭代：v1.4.2 将地图从 ScrollView 中移出（解决事件被父组件拦截）；v1.6.1 尝试手动 `awaitPointerEventScope` 底层事件处理（因 `awaitEachGesture` 无 Compose 1.5.x 支持而放弃）；v1.6.2 实现 anchored zoom 但缺 `mapLeft` 补偿（放大时向左上角漂移）；v1.6.4 回归 `detectTransformGestures` 并补全 letterbox 偏移补偿，最终根治所有交互问题。
+9. **负数取模陷阱** — Kotlin 的 `%` 运算符对负数返回负值（与 Python/数学定义不同），导致 v1.6.3 地图网格整整偏移 48 列。移除取模操作、直接使用原始偏移值是最简解决方案。
 
 ### 权限
 
