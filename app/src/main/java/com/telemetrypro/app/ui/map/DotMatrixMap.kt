@@ -188,8 +188,8 @@ fun DotMatrixMap(
                         val gx = ((lng + 180.0) / 360.0 * 126.0).toFloat()
                         val gy = mercatorY(lat)
                         return Offset(
-                            gridStartX + gx * cellW + cellW / 2,
-                            gridStartY + gy * cellH + cellH / 2
+                            gridStartX + gx * cellW,
+                            gridStartY + gy * cellH
                         )
                     }
 
@@ -278,19 +278,6 @@ fun DotMatrixMap(
                         drawLine(crossColor, Offset(pos.x + 3f, pos.y), Offset(pos.x + crossLen, pos.y), 1f)
                         drawLine(crossColor, Offset(pos.x, pos.y - crossLen), Offset(pos.x, pos.y - 3f), 1f)
                         drawLine(crossColor, Offset(pos.x, pos.y + 3f), Offset(pos.x, pos.y + crossLen), 1f)
-
-                        if (scale >= 0.8f) {
-                            val coordText = String.format("%.2f\u00B0, %.2f\u00B0", latitude, longitude)
-                            val tl = textMeasurer.measure(
-                                text = coordText,
-                                style = TextStyle(
-                                    fontSize = (9f / scale).coerceIn(7f, 12f).sp,
-                                    color = Primary,
-                                    fontFamily = FontFamily.Monospace
-                                )
-                            )
-                            drawText(tl, topLeft = Offset(pos.x - tl.size.width / 2f, pos.y - 18f))
-                        }
                     }
                 } catch (_: Exception) { }
             }
