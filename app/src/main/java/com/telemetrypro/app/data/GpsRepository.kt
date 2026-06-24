@@ -246,7 +246,10 @@ class GpsRepository(private val context: Context) {
     }
 
     private fun updateSatelliteData(status: GnssStatus) {
-        val list = mutableListOf<SatelliteInfo>()
+        // Deduplicate by (constellationType, svid) — some devices report the same
+        // satellite twice (e.g. as UNKNOWN + real constellation), which would crash
+        // Compose LazyColumn due to duplicate keys.
+        val satMap = mutableMapOf<Pair<Int, Int>, SatelliteInfo>()
         var usedCount = 0
 
         for (i in 0 until status.satelliteCount) {
@@ -257,28 +260,31 @@ class GpsRepository(private val context: Context) {
             }
             val constellation = Constellation.fromConstellationType(constellationType)
             val usedInFix = status.usedInFix(i)
+            val svid = status.getSvid(i)
 
             if (usedInFix) usedCount++
 
-            list.add(
-                SatelliteInfo(
-                    svid = status.getSvid(i),
-                    constellation = constellation,
-                    snr = status.getCn0DbHz(i),
-                    elevation = status.getElevationDegrees(i),
-                    azimuth = status.getAzimuthDegrees(i),
-                    usedInFix = usedInFix,
-                    hasAlmanac = status.hasAlmanacData(i),
-                    hasEphemeris = status.hasEphemerisData(i)
-                )
+            val info = SatelliteInfo(
+                svid = svid,
+                constellation = constellation,
+                snr = status.getCn0DbHz(i).let { if (it.isNaN() || it < 0) 0f else it },
+                elevation = status.getElevationDegrees(i),
+                azimuth = status.getAzimuthDegrees(i),
+                usedInFix = usedInFix,
+                hasAlmanac = status.hasAlmanacData(i),
+                hasEphemeris = status.hasEphemerisData(i)
             )
+            // Later entries overwrite earlier ones (keep latest data for duplicate svid)
+            satMap[constellationType to svid] = info
         }
+
+        val list = satMap.values.toList()
 
         // Group by constellation and build stats
         val grouped = list.groupBy { it.constellation }
         val stats = grouped.map { (constellation, sats) ->
             val avgSnr = sats.filter { it.snr > 0 }.map { it.snr }.average().toFloat()
-            val bestSnr = sats.maxOfOrNull { it.snr } ?: 0f
+            val bestSnr = sats.maxOfOrNull { it.snr }?.let { if (it.isNaN()) 0f else it } ?: 0f
             ConstellationStats(
                 constellation = constellation,
                 totalVisible = sats.size,
@@ -291,7 +297,7 @@ class GpsRepository(private val context: Context) {
 
         _satellites.value = list
         _locationState.value = _locationState.value.copy(
-            totalSatellites = status.satelliteCount,
+            totalSatellites = list.size,
             usedSatellites = usedCount,
             satellites = list,
             constellationStats = stats

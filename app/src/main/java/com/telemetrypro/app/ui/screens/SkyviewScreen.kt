@@ -145,13 +145,14 @@ fun SkyviewScreen(
                 }
             }
         } else {
+            val lastSat = sortedSats.last()
             items(
                 items = sortedSats,
-                key = { "${it.constellation.label}${it.svid}" }
+                key = { "${it.constellation.constellationType}_${it.svid}" }
             ) { sat ->
                 SatelliteRow(
                     sat = sat,
-                    isLast = sat == sortedSats.last(),
+                    isLast = sat == lastSat,
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
             }
@@ -212,7 +213,7 @@ private fun SatelliteRow(
                 .weight(0.3f)
                 .height(4.dp)
         ) {
-            val ratio = (sat.snr / 50f).coerceIn(0f, 1f)
+            val ratio = (sat.snr / 50f).let { if (it.isNaN()) 0f else it.coerceIn(0f, 1f) }
             drawRect(color = SurfaceContainerHighest)
             drawRect(
                 color = sat.constellation.color,
