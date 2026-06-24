@@ -1,0 +1,30 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Android
+/local.properties
+/app/build/
+/app/release/
+*.apk
+*.aab
+*.jks
+*.keystore
+
+# WorkBuddy
+.workbuddy/
+
+# Logs
+*.log

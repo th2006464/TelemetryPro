@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.TelemetryPro" parent="android:Theme.Material.NoActionBar">
+        <item name="android:colorBackground">#131313</item>
+        <item name="android:statusBarColor">#131313</item>
+        <item name="android:navigationBarColor">#131313</item>
+        <item name="android:windowBackground">@color/background</item>
+    </style>
+    <color name="background">#131313</color>
+</resources>

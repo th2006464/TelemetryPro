@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Background circle -->
+    <path
+        android:fillColor="#FFD700"
+        android:pathData="M54,54m-40,0a40,40 0,1 1,80 0a40,40 0,1 1,-80 0"/>
+    <!-- Satellite body -->
+    <path
+        android:fillColor="#131313"
+        android:pathData="M42,40l24,14l-24,14z"/>
+    <!-- Solar panels -->
+    <path
+        android:fillColor="#131313"
+        android:pathData="M36,52l6,4l-0.5,8l-5.5,-12z"/>
+    <path
+        android:fillColor="#131313"
+        android:pathData="M66,52l-6,4l0.5,8l5.5,-12z"/>
+    <!-- Signal waves -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:pathData="M54,18Q62,26 62,34"/>
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:pathData="M54,14Q66,26 66,38"/>
+</vector>
