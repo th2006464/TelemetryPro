@@ -112,7 +112,7 @@
     <string name="network_mode">NETWORK MODE</string>
     <string name="network_mode_online">Online</string>
     <string name="network_mode_offline">Offline</string>
-    <string name="network_mode_online_desc">Enable AGPS / network-assisted fix</string>
+    <string name="network_mode_online_desc">Enable network-assisted positioning</string>
     <string name="network_mode_offline_desc">Pure GPS only, no network dependency</string>
     <string name="network_mode_changed">Network mode changed, restart GPS to apply</string>
     <string name="network_status_online">ONLINE</string>

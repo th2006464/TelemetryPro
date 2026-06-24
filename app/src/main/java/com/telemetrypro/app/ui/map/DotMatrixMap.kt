@@ -3,16 +3,18 @@ package com.telemetrypro.app.ui.map
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -28,6 +30,9 @@ import kotlin.math.*
  * Dot-matrix world map rendered on Compose Canvas.
  * Uses 126x60 grid data from NTag/dotted-map (Mercator projection).
  * Supports pinch-to-zoom, pan, GPS position marker, and city labels.
+ *
+ * Performance: uses drawPoints batch rendering instead of per-dot drawCircle.
+ * Gesture: uses transformable() for robust single-finger drag + multi-finger zoom.
  */
 @Composable
 fun DotMatrixMap(
@@ -38,15 +43,23 @@ fun DotMatrixMap(
     modifier: Modifier = Modifier,
     mapLabel: String = ""
 ) {
-    var scale by remember { mutableStateOf(1.0f) }
+    var scale by remember { mutableStateOf(1.3f) }
     var offsetX by remember { mutableStateOf(0f) }
     var offsetY by remember { mutableStateOf(0f) }
 
-    // Static GPS crosshair — no animation to avoid startup issues
+    // Static GPS crosshair style
     val pulseRadius = 6f
     val pulseAlpha = 0.35f
 
     val textMeasurer = rememberTextMeasurer()
+
+    // Gesture state: transformable handles both single-finger pan and multi-finger zoom
+    // API: (zoomChange: Float, panChange: Offset, rotationChange: Float) -> Unit
+    val transformState = rememberTransformableState { zoom, pan, _ ->
+        scale = (scale * zoom).coerceIn(0.5f, 5f)
+        offsetX += pan.x
+        offsetY += pan.y
+    }
 
     Box(
         modifier = modifier
@@ -74,20 +87,15 @@ fun DotMatrixMap(
                     .fillMaxWidth()
                     .weight(1f)
                     .padding(8.dp)
-                    .pointerInput(Unit) {
-                        detectTransformGestures { _, pan, zoom, _ ->
-                            scale = (scale * zoom).coerceIn(0.5f, 5f)
-                            offsetX += pan.x
-                            offsetY += pan.y
-                        }
-                    }
+                    .clipToBounds()
+                    .transformable(state = transformState)
             ) {
                 val canvasW = size.width
                 val canvasH = size.height
                 if (canvasW <= 0f || canvasH <= 0f) return@Canvas
 
                 try {
-                    // Mercator projection helper
+                    // Mercator constants
                     val maxLatRad = (85.0 * Math.PI / 180.0).toFloat()
                     val mercMax = ln(tan(Math.PI.toFloat() / 4f + maxLatRad / 2f))
 
@@ -97,7 +105,7 @@ fun DotMatrixMap(
                         return (60f * (1f - yMerc / mercMax) / 2f)
                     }
 
-                    // Grid dot rendering
+                    // Grid sizing
                     val cellW = canvasW / 126f * scale
                     val gridRatio = canvasH / 60f / (canvasW / 126f)
                     val cellH = cellW * gridRatio
@@ -105,7 +113,7 @@ fun DotMatrixMap(
                     val gridStartX = offsetX % cellW
                     val gridStartY = offsetY % cellH
 
-                    // Determine visible grid range (clamped to valid indices)
+                    // Visible range
                     val colStart = max(0, ((-gridStartX / cellW).toInt() - 1).coerceIn(0, 125))
                     val colEnd = min(125, ((canvasW - gridStartX) / cellW).toInt() + 1)
                     val rowStart = max(0, ((-gridStartY / cellH).toInt() - 1).coerceIn(0, 59))
@@ -113,26 +121,34 @@ fun DotMatrixMap(
 
                     if (colStart > colEnd || rowStart > rowEnd) return@Canvas
 
-                    // Dot size: proportional to cell, with min/max
+                    // ---- Batch-render land dots with drawPoints ----
                     val dotRadius = (cellW * 0.22f).coerceIn(1f, 4f)
                     val dotColor = OnSurfaceVariant.copy(alpha = 0.45f)
 
-                    // Draw land dots from grid
-                    for (y in rowStart..rowEnd) {
-                        for (x in colStart..colEnd) {
-                            if (WorldMapGrid.isLand(x, y)) {
-                                val px = gridStartX + x * cellW + cellW / 2
-                                val py = gridStartY + y * cellH + cellH / 2
-                                drawCircle(
-                                    color = dotColor,
-                                    radius = dotRadius,
-                                    center = Offset(px, py)
-                                )
+                    val landPoints = buildList(capacity = 500) {
+                        for (y in rowStart..rowEnd) {
+                            for (x in colStart..colEnd) {
+                                if (WorldMapGrid.isLand(x, y)) {
+                                    add(Offset(
+                                        gridStartX + x * cellW + cellW / 2,
+                                        gridStartY + y * cellH + cellH / 2
+                                    ))
+                                }
                             }
                         }
                     }
 
-                    // City labels
+                    if (landPoints.isNotEmpty()) {
+                        drawPoints(
+                            points = landPoints,
+                            pointMode = PointMode.Points,
+                            color = dotColor,
+                            strokeWidth = dotRadius * 2f,
+                            cap = StrokeCap.Round
+                        )
+                    }
+
+                    // ---- City labels ----
                     if (showCities && scale >= 0.8f) {
                         for (city in WorldMapData.majorCities) {
                             val gridX = (city.lon + 180f) / 360f * 126f
@@ -149,7 +165,8 @@ fun DotMatrixMap(
                                 drawCircle(
                                     color = OnSurfaceVariant.copy(alpha = alpha),
                                     radius = 2f,
-                                    center = Offset(cityPx, cityPy)
+                                    center = Offset(cityPx, cityPy),
+                                    style = Stroke(1f)
                                 )
                                 if (scale >= 1.3f) {
                                     val textLayoutResult = textMeasurer.measure(
@@ -172,7 +189,7 @@ fun DotMatrixMap(
                         }
                     }
 
-                    // GPS position marker
+                    // ---- GPS position marker ----
                     if (isFixed && latitude != 0.0 && longitude != 0.0) {
                         val posGridX = ((longitude + 180.0) / 360.0 * 126.0).toFloat()
                         val posGridY = mercatorY(latitude)
@@ -190,7 +207,7 @@ fun DotMatrixMap(
                         // Core
                         drawCircle(color = PrimaryFixed, radius = 2.5f, center = Offset(posX, posY))
 
-                        // Crosshair
+                        // Crosshair lines
                         val crossLen = 10f
                         val crossColor = PrimaryFixed.copy(alpha = 0.6f)
                         drawLine(crossColor, Offset(posX - crossLen, posY), Offset(posX - 3f, posY), 1f)
@@ -198,7 +215,7 @@ fun DotMatrixMap(
                         drawLine(crossColor, Offset(posX, posY - crossLen), Offset(posX, posY - 3f), 1f)
                         drawLine(crossColor, Offset(posX, posY + 3f), Offset(posX, posY + crossLen), 1f)
 
-                        // Label
+                        // Coordinate label
                         if (scale >= 0.8f) {
                             val coordText = String.format("%.2f\u00B0, %.2f\u00B0", latitude, longitude)
                             val textLayoutResult = textMeasurer.measure(
@@ -215,7 +232,7 @@ fun DotMatrixMap(
                             )
                         }
                     }
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     // Canvas drawing failure — silently skip
                 }
             }

@@ -113,7 +113,7 @@
     <string name="network_mode">网络模式</string>
     <string name="network_mode_online">在线模式</string>
     <string name="network_mode_offline">离线模式</string>
-    <string name="network_mode_online_desc">启用 AGPS / 网络辅助加速定位</string>
+    <string name="network_mode_online_desc">启用网络辅助定位</string>
     <string name="network_mode_offline_desc">纯 GPS 定位，无网络依赖</string>
     <string name="network_mode_changed">网络模式已切换，重新启动 GPS 后生效</string>
     <string name="network_status_online">在线</string>

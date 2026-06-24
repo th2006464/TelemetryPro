@@ -25,11 +25,11 @@ fun DashboardScreen(
     isOnlineMode: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    // Fixed header area — map never scrolls, gestures are isolated
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(Background)
-            .verticalScroll(rememberScrollState())
     ) {
         TopAppBar(
             fixLabel = when (state.fixStatus) {
@@ -61,7 +61,7 @@ fun DashboardScreen(
             }
         }
 
-        // World Map — dot-matrix style
+        // World Map — dot-matrix style (fixed, NOT scrollable — isolated gesture zone)
         DotMatrixMap(
             latitude = state.latitude,
             longitude = state.longitude,
@@ -74,88 +74,96 @@ fun DashboardScreen(
                 .padding(horizontal = 16.dp, vertical = 4.dp)
         )
 
-        // GNSS coordinates
-        Row(
+        // Scrollable content below the map
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
         ) {
-            ReadoutTile(
-                label = stringResource(R.string.dashboard_gnss_coords),
-                value = String.format("%.4f", state.latitude),
-                unit = if (state.latitude >= 0) "°N" else "°S",
-                subLabel = String.format("%.4f", state.longitude) +
-                        if (state.longitude >= 0) "°E" else "°W",
-                modifier = Modifier.weight(1f)
-            )
-        }
+            // GNSS coordinates
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                ReadoutTile(
+                    label = stringResource(R.string.dashboard_gnss_coords),
+                    value = String.format("%.4f", state.latitude),
+                    unit = if (state.latitude >= 0) "°N" else "°S",
+                    subLabel = String.format("%.4f", state.longitude) +
+                            if (state.longitude >= 0) "°E" else "°W",
+                    modifier = Modifier.weight(1f)
+                )
+            }
 
-        // Altitude & Speed
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            ReadoutTile(
-                label = stringResource(R.string.dashboard_altitude),
-                value = String.format("%.0f", state.altitudeMeters),
-                unit = stringResource(R.string.dashboard_unit_msl),
-                modifier = Modifier.weight(1f)
-            )
-            ReadoutTile(
-                label = stringResource(R.string.dashboard_ground_speed),
-                value = String.format("%.1f", state.speedKmh),
-                unit = stringResource(R.string.dashboard_unit_kmh),
-                modifier = Modifier.weight(1f)
-            )
-        }
+            // Altitude & Speed
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                ReadoutTile(
+                    label = stringResource(R.string.dashboard_altitude),
+                    value = String.format("%.0f", state.altitudeMeters),
+                    unit = stringResource(R.string.dashboard_unit_msl),
+                    modifier = Modifier.weight(1f)
+                )
+                ReadoutTile(
+                    label = stringResource(R.string.dashboard_ground_speed),
+                    value = String.format("%.1f", state.speedKmh),
+                    unit = stringResource(R.string.dashboard_unit_kmh),
+                    modifier = Modifier.weight(1f)
+                )
+            }
 
-        // Constellation stats
-        if (state.constellationStats.isNotEmpty()) {
-            ConstellationStatsCard(
-                stats = state.constellationStats,
+            // Constellation stats
+            if (state.constellationStats.isNotEmpty()) {
+                ConstellationStatsCard(
+                    stats = state.constellationStats,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                )
+            }
+
+            // SNR bar graph
+            if (state.satellites.isNotEmpty()) {
+                SnrBarGraph(
+                    satellites = state.satellites,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                )
+            }
+
+            // Sat count & accuracy
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                ReadoutTile(
+                    label = stringResource(R.string.dashboard_sat_count),
+                    value = "${state.usedSatellites}/${state.totalSatellites}",
+                    valueColor = Secondary,
+                    modifier = Modifier.weight(1f)
+                )
+                ReadoutTile(
+                    label = stringResource(R.string.dashboard_accuracy),
+                    value = String.format("%.1f", state.accuracy),
+                    unit = stringResource(R.string.dashboard_unit_m),
+                    valueColor = if (state.accuracy < 10f) Secondary else OnSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            // NMEA feed
+            NmeaFeed(
+                lines = state.nmeaLogLines,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
             )
+
+            Spacer(Modifier.height(80.dp))
         }
-
-        // SNR bar graph
-        if (state.satellites.isNotEmpty()) {
-            SnrBarGraph(
-                satellites = state.satellites,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-            )
-        }
-
-        // Sat count & accuracy
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            ReadoutTile(
-                label = stringResource(R.string.dashboard_sat_count),
-                value = "${state.usedSatellites}/${state.totalSatellites}",
-                valueColor = Secondary,
-                modifier = Modifier.weight(1f)
-            )
-            ReadoutTile(
-                label = stringResource(R.string.dashboard_accuracy),
-                value = String.format("%.1f", state.accuracy),
-                unit = stringResource(R.string.dashboard_unit_m),
-                valueColor = if (state.accuracy < 10f) Secondary else OnSurfaceVariant,
-                modifier = Modifier.weight(1f)
-            )
-        }
-
-        // NMEA feed
-        NmeaFeed(
-            lines = state.nmeaLogLines,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-        )
-
-        Spacer(Modifier.height(80.dp))
     }
 }
