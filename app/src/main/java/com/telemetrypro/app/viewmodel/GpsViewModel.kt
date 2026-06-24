@@ -44,9 +44,13 @@ class GpsViewModel(application: Application) : AndroidViewModel(application) {
     val isNetworkAvailable: StateFlow<Boolean> = _isNetworkAvailable.asStateFlow()
 
     init {
-        // Apply persisted online mode on creation
-        repository.onlineMode = _isOnlineMode.value
-        monitorNetwork(application)
+        try {
+            // Apply persisted online mode on creation
+            repository.onlineMode = _isOnlineMode.value
+            monitorNetwork(application)
+        } catch (e: Exception) {
+            // Non-critical: app will still work in offline mode
+        }
     }
 
     private fun monitorNetwork(context: Context) {

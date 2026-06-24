@@ -141,10 +141,18 @@ class GpsRepository(private val context: Context) {
 
             // Register GNSS status
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                lm.registerGnssStatusCallback(gnssCallback)
+                try {
+                    lm.registerGnssStatusCallback(gnssCallback)
+                } catch (e: Exception) {
+                    // GNSS callback registration failed — non-critical
+                }
             }
             // Register NMEA listener
-            lm.addNmeaListener(nmeaListener)
+            try {
+                lm.addNmeaListener(nmeaListener)
+            } catch (e: Exception) {
+                // NMEA listener registration failed — non-critical
+            }
 
             // Update online state in flow
             _locationState.value = _locationState.value.copy(
@@ -154,16 +162,33 @@ class GpsRepository(private val context: Context) {
             _locationState.value = _locationState.value.copy(
                 fixStatus = GpsFixStatus.NO_SIGNAL
             )
+        } catch (e: Exception) {
+            // Catch-all for any unexpected errors during GPS start
+            _locationState.value = _locationState.value.copy(
+                fixStatus = GpsFixStatus.NO_SIGNAL
+            )
         }
     }
 
     fun stop() {
         val lm = locationManager ?: return
-        lm.removeUpdates(locationListener)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            lm.unregisterGnssStatusCallback(gnssCallback)
+        try {
+            lm.removeUpdates(locationListener)
+        } catch (e: Exception) {
+            // already unregistered or never registered
         }
-        lm.removeNmeaListener(nmeaListener)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            try {
+                lm.unregisterGnssStatusCallback(gnssCallback)
+            } catch (e: Exception) {
+                // already unregistered or never registered
+            }
+        }
+        try {
+            lm.removeNmeaListener(nmeaListener)
+        } catch (e: Exception) {
+            // already removed or never added
+        }
     }
 
     /**

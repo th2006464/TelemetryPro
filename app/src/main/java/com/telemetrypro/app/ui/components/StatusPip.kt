@@ -30,15 +30,14 @@ fun StatusPip(
         PipStatus.INACTIVE -> MutedGray
     }
 
-    val infiniteTransition = rememberInfiniteTransition(label = "pip_pulse")
+    val infiniteTransition = rememberInfiniteTransition()
     val scale by infiniteTransition.animateFloat(
         initialValue = 1f,
         targetValue = if (status == PipStatus.ACTIVE) 1.2f else 1f,
         animationSpec = infiniteRepeatable(
             animation = tween(1000),
             repeatMode = RepeatMode.Reverse
-        ),
-        label = "pip_scale"
+        )
     )
     val alpha by infiniteTransition.animateFloat(
         initialValue = 1f,
@@ -46,8 +45,7 @@ fun StatusPip(
         animationSpec = infiniteRepeatable(
             animation = tween(1000),
             repeatMode = RepeatMode.Reverse
-        ),
-        label = "pip_alpha"
+        )
     )
 
     Canvas(
