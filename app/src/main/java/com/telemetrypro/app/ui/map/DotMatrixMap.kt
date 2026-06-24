@@ -249,7 +249,7 @@ fun DotMatrixMap(
                                     center = pos,
                                     style = Stroke(1f)
                                 )
-                                if (scale >= 1.3f) {
+                                if (scale >= 2.0f) {
                                     val tl = textMeasurer.measure(
                                         text = city.name,
                                         style = TextStyle(
