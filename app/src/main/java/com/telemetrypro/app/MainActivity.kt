@@ -24,6 +24,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.telemetrypro.app.ui.components.BottomNavBar
 import com.telemetrypro.app.ui.screens.DashboardScreen
+import com.telemetrypro.app.ui.screens.FullscreenMapScreen
 import com.telemetrypro.app.ui.screens.RecordScreen
 import com.telemetrypro.app.ui.screens.SettingsScreen
 import com.telemetrypro.app.ui.screens.SkyviewScreen
@@ -70,6 +71,7 @@ private fun MainApp() {
     val lifecycleOwner = LocalLifecycleOwner.current
 
     var selectedTab by remember { mutableIntStateOf(0) }
+    var showFullscreenMap by remember { mutableStateOf(false) }
     val hasPermission = remember {
         ContextCompat.checkSelfPermission(
             context,
@@ -125,7 +127,8 @@ private fun MainApp() {
             when (selectedTab) {
                 0 -> DashboardScreen(
                     state = state,
-                    isOnlineMode = isOnlineMode
+                    isOnlineMode = isOnlineMode,
+                    onFullscreenClick = { showFullscreenMap = true }
                 )
                 1 -> SkyviewScreen(
                     state = state,
@@ -157,13 +160,21 @@ private fun MainApp() {
                     nmeaLoggingEnabled = nmeaLoggingEnabled,
                     onOnlineModeChanged = { enabled -> viewModel.setOnlineMode(enabled) },
                     onLanguageChanged = {
-                        // Restart activity to apply new locale
                         val intent = Intent(context, MainActivity::class.java)
                         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                         context.startActivity(intent)
                         Runtime.getRuntime().exit(0)
                     },
                     onNmeaLoggingChanged = { enabled -> viewModel.setNmeaLoggingEnabled(enabled) }
+                )
+            }
+
+            // Fullscreen map overlay
+            if (showFullscreenMap) {
+                FullscreenMapScreen(
+                    state = state,
+                    isOnlineMode = isOnlineMode,
+                    onClose = { showFullscreenMap = false }
                 )
             }
         }

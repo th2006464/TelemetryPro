@@ -3,8 +3,9 @@ package com.telemetrypro.app.ui.map
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectTransformGestures
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.forEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -15,6 +16,8 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.*
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -35,7 +38,9 @@ fun DotMatrixMap(
     showCities: Boolean = true,
     modifier: Modifier = Modifier,
     mapLabel: String = "",
-    trackPoints: List<TrackPoint> = emptyList()
+    trackPoints: List<TrackPoint> = emptyList(),
+    showFullscreenButton: Boolean = false,
+    onFullscreenClick: (() -> Unit)? = null
 ) {
     var scale by remember { mutableStateOf(1.3f) }
     var offsetX by remember { mutableStateOf(0f) }
@@ -45,6 +50,8 @@ fun DotMatrixMap(
     val pulseAlpha = 0.35f
 
     val textMeasurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val touchSlopPx = with(density) { 12.dp.toPx() }
 
     Box(
         modifier = modifier
@@ -70,10 +77,64 @@ fun DotMatrixMap(
                     .padding(8.dp)
                     .clipToBounds()
                     .pointerInput(Unit) {
-                        detectTransformGestures { _, pan, zoom, _ ->
-                            scale = (scale * zoom).coerceIn(0.5f, 5f)
-                            offsetX += pan.x
-                            offsetY += pan.y
+                        // Manual gesture handling: single-finger drag + multi-finger pinch-zoom
+                        // Uses awaitPointerEventScope + while(true) { awaitFirstDown() } pattern
+                        // which is the correct low-level API for Compose 1.5.x
+                        awaitPointerEventScope {
+                            while (true) {
+                                var previousCentroid = Offset.Zero
+                                var previousSpan = 0f
+                                var tracking = false
+
+                                // Wait for first pointer down
+                                val firstDown = awaitFirstDown()
+                                previousCentroid = firstDown.position
+
+                                // Track all subsequent pointer events until all pointers are up
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    val activePointers = event.changes.filter { it.pressed }
+
+                                    if (activePointers.isEmpty()) break
+
+                                    if (activePointers.size == 1) {
+                                        // Single finger — drag (pan)
+                                        val change = activePointers[0]
+                                        val delta = change.position - previousCentroid
+                                        if (!tracking && delta.getDistance() < touchSlopPx) {
+                                            // Not yet past touch slop — wait
+                                            continue
+                                        }
+                                        tracking = true
+                                        offsetX += delta.x
+                                        offsetY += delta.y
+                                        previousCentroid = change.position
+                                        change.consume()
+                                    } else if (activePointers.size >= 2) {
+                                        // Multi-finger — centroid pan + pinch zoom
+                                        val p1 = activePointers[0].position
+                                        val p2 = activePointers[1].position
+                                        val centroid = Offset(
+                                            (p1.x + p2.x) / 2f,
+                                            (p1.y + p2.y) / 2f
+                                        )
+                                        val span = (p2 - p1).getDistance()
+
+                                        if (tracking && previousSpan > 0f) {
+                                            val zoomFactor = span / previousSpan
+                                            scale = (scale * zoomFactor).coerceIn(0.5f, 5f)
+                                            val delta = centroid - previousCentroid
+                                            offsetX += delta.x
+                                            offsetY += delta.y
+                                        }
+
+                                        previousSpan = span
+                                        previousCentroid = centroid
+                                        tracking = true
+                                        activePointers.forEach { it.consume() }
+                                    }
+                                }
+                            }
                         }
                     }
             ) {
@@ -105,7 +166,6 @@ fun DotMatrixMap(
 
                     if (colStart > colEnd || rowStart > rowEnd) return@Canvas
 
-                    // Helper to convert lat/lng to canvas coordinates
                     fun latLngToCanvas(lat: Double, lng: Double): Offset {
                         val gx = ((lng + 180.0) / 360.0 * 126.0).toFloat()
                         val gy = mercatorY(lat)
@@ -141,7 +201,6 @@ fun DotMatrixMap(
                         val trackOffsets = trackPoints.map { pt ->
                             latLngToCanvas(pt.latitude, pt.longitude)
                         }
-                        // Path line
                         val trackPath = Path().apply {
                             moveTo(trackOffsets[0].x, trackOffsets[0].y)
                             for (i in 1 until trackOffsets.size) {
@@ -149,7 +208,6 @@ fun DotMatrixMap(
                             }
                         }
                         drawPath(trackPath, Secondary.copy(alpha = 0.5f), style = Stroke(width = 1.5f))
-                        // Start/end markers
                         drawCircle(Secondary.copy(alpha = 0.8f), 4f, trackOffsets.first())
                         drawCircle(PrimaryFixedDim, 4f, trackOffsets.last())
                     }
@@ -234,6 +292,25 @@ fun DotMatrixMap(
                         color = OnSurfaceVariant.copy(alpha = 0.5f)
                     )
                 }
+            }
+        }
+
+        // Fullscreen button overlay (top-right)
+        if (showFullscreenButton && onFullscreenClick != null) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(4.dp)
+                    .background(SurfaceContainerHigh.copy(alpha = 0.7f), RoundedCornerShape(6.dp))
+                    .border(1.dp, OutlineVariant.copy(alpha = 0.4f), RoundedCornerShape(6.dp))
+                    .clickable { onFullscreenClick() }
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Text(
+                    text = "\u26F6",  // ⛶ fullscreen symbol
+                    style = CodeSm,
+                    color = OnSurfaceVariant
+                )
             }
         }
     }

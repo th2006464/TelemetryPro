@@ -60,7 +60,7 @@
 
     <!-- Settings -->
     <string name="settings_title">系统配置</string>
-    <string name="settings_subtitle">控制面板 v1.6.0 // 测距模块已上线</string>
+    <string name="settings_subtitle">控制面板 v1.6.1 // 全屏地图已上线</string>
     <string name="settings_distance_unit">距离单位</string>
     <string name="settings_metric_km">公制 (km)</string>
     <string name="settings_imperial_mi">英制 (mi)</string>
@@ -113,6 +113,7 @@
     <!-- Map -->
     <string name="map_world_position">世界定位</string>
     <string name="map_pinch_hint">双指缩放 · 拖动平移</string>
+    <string name="fullscreen_close">关闭全屏</string>
 
     <!-- Network Mode -->
     <string name="network_mode">网络模式</string>

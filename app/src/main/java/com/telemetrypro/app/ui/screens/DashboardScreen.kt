@@ -23,6 +23,7 @@ import com.telemetrypro.app.ui.theme.*
 fun DashboardScreen(
     state: LocationState,
     isOnlineMode: Boolean = false,
+    onFullscreenClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     // Fixed header area — map never scrolls, gestures are isolated
@@ -72,6 +73,8 @@ fun DashboardScreen(
             else
                 stringResource(R.string.map_world_position),
             trackPoints = if (state.isRecording) state.recordingPoints else emptyList(),
+            showFullscreenButton = true,
+            onFullscreenClick = onFullscreenClick,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(240.dp)

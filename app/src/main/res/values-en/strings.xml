@@ -60,7 +60,7 @@
 
     <!-- Settings -->
     <string name="settings_title">System Configuration</string>
-    <string name="settings_subtitle">CONTROL PANEL v1.6.0 // DISTANCE TRACKING ACTIVE</string>
+    <string name="settings_subtitle">CONTROL PANEL v1.6.1 // FULLSCREEN MAP ACTIVE</string>
     <string name="settings_distance_unit">DISTANCE UNIT</string>
     <string name="settings_metric_km">METRIC (km)</string>
     <string name="settings_imperial_mi">IMPERIAL (mi)</string>
@@ -112,6 +112,7 @@
     <!-- Map -->
     <string name="map_world_position">World Position</string>
     <string name="map_pinch_hint">Pinch to zoom · Drag to pan</string>
+    <string name="fullscreen_close">Close Fullscreen</string>
 
     <!-- Network Mode -->
     <string name="network_mode">NETWORK MODE</string>
