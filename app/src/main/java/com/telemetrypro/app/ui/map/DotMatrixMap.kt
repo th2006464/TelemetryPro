@@ -77,61 +77,57 @@ fun DotMatrixMap(
                     .padding(8.dp)
                     .clipToBounds()
                     .pointerInput(Unit) {
-                        // Manual gesture handling: single-finger drag + multi-finger pinch-zoom
-                        // Uses awaitPointerEventScope + while(true) { awaitFirstDown() } pattern
-                        // which is the correct low-level API for Compose 1.5.x
+                        // Dual-gesture: single-finger drag + anchored pinch-zoom
+                        // CRITICAL: consume ALL events immediately to prevent parent theft
                         awaitPointerEventScope {
                             while (true) {
-                                var previousCentroid = Offset.Zero
-                                var previousSpan = 0f
+                                var prevCentroid = Offset.Zero
+                                var prevSpan = 0f
                                 var tracking = false
 
-                                // Wait for first pointer down
                                 val firstDown = awaitFirstDown()
-                                previousCentroid = firstDown.position
+                                prevCentroid = firstDown.position
 
-                                // Track all subsequent pointer events until all pointers are up
                                 while (true) {
                                     val event = awaitPointerEvent()
-                                    val activePointers = event.changes.filter { it.pressed }
+                                    val active = event.changes.filter { it.pressed }
+                                    if (active.isEmpty()) break
 
-                                    if (activePointers.isEmpty()) break
-
-                                    if (activePointers.size == 1) {
-                                        // Single finger — drag (pan)
-                                        val change = activePointers[0]
-                                        val delta = change.position - previousCentroid
+                                    if (active.size == 1) {
+                                        val ch = active[0]
+                                        val delta = ch.position - prevCentroid
+                                        ch.consume() // consume NOW �� prevent parent steal
                                         if (!tracking && delta.getDistance() < touchSlopPx) {
-                                            // Not yet past touch slop — wait
                                             continue
                                         }
                                         tracking = true
                                         offsetX += delta.x
                                         offsetY += delta.y
-                                        previousCentroid = change.position
-                                        change.consume()
-                                    } else if (activePointers.size >= 2) {
-                                        // Multi-finger — centroid pan + pinch zoom
-                                        val p1 = activePointers[0].position
-                                        val p2 = activePointers[1].position
-                                        val centroid = Offset(
-                                            (p1.x + p2.x) / 2f,
-                                            (p1.y + p2.y) / 2f
-                                        )
-                                        val span = (p2 - p1).getDistance()
+                                        prevCentroid = ch.position
+                                    } else {
+                                        // 2+ fingers: anchored pinch-zoom + centroid pan
+                                        active.forEach { it.consume() }
+                                        val pts = active.map { it.position }
+                                        val cx = pts.map { it.x }.average().toFloat()
+                                        val cy = pts.map { it.y }.average().toFloat()
+                                        val centroid = Offset(cx, cy)
+                                        val span = (active[1].position - active[0].position).getDistance()
 
-                                        if (tracking && previousSpan > 0f) {
-                                            val zoomFactor = span / previousSpan
-                                            scale = (scale * zoomFactor).coerceIn(0.5f, 5f)
-                                            val delta = centroid - previousCentroid
-                                            offsetX += delta.x
-                                            offsetY += delta.y
+                                        if (tracking && prevSpan > 0f) {
+                                            val z = span / prevSpan
+                                            val newScale = (scale * z).coerceIn(0.5f, 5f)
+                                            // Anchor zoom around pinch centroid (not origin!)
+                                            val actualZ = newScale / scale
+                                            offsetX = centroid.x - actualZ * (centroid.x - offsetX)
+                                            offsetY = centroid.y - actualZ * (centroid.y - offsetY)
+                                            // Add centroid pan
+                                            offsetX += centroid.x - prevCentroid.x
+                                            offsetY += centroid.y - prevCentroid.y
+                                            scale = newScale
                                         }
-
-                                        previousSpan = span
-                                        previousCentroid = centroid
+                                        prevSpan = span
+                                        prevCentroid = centroid
                                         tracking = true
-                                        activePointers.forEach { it.consume() }
                                     }
                                 }
                             }
@@ -215,11 +211,10 @@ fun DotMatrixMap(
                     // ---- City labels ----
                     if (showCities && scale >= 0.8f) {
                         for (city in WorldMapData.majorCities) {
-                            val cityPx = latLngToCanvas(city.lat.toDouble(), city.lon.toDouble())
-                            val cityPy = cityPx.y
-                            val cityX = cityPx.x
+                            val cityX = latLngToCanvas(city.lat.toDouble(), city.lon.toDouble()).x
+                            val cityY = latLngToCanvas(city.lat.toDouble(), city.lon.toDouble()).y
 
-                            if (cityX in -50f..(canvasW + 50f) && cityPy in -50f..(canvasH + 50f)) {
+                            if (cityX in -50f..(canvasW + 50f) && cityY in -50f..(canvasH + 50f)) {
                                 val alpha = when {
                                     scale < 1.0f -> 0.3f
                                     scale < 1.5f -> 0.5f
@@ -228,7 +223,7 @@ fun DotMatrixMap(
                                 drawCircle(
                                     color = OnSurfaceVariant.copy(alpha = alpha),
                                     radius = 2f,
-                                    center = Offset(cityX, cityPy),
+                                    center = Offset(cityX, cityY),
                                     style = Stroke(1f)
                                 )
                                 if (scale >= 1.3f) {
@@ -240,7 +235,7 @@ fun DotMatrixMap(
                                             fontFamily = FontFamily.Default
                                         )
                                     )
-                                    drawText(tl, topLeft = Offset(cityX - tl.size.width / 2f, cityPy + 4f))
+                                    drawText(tl, topLeft = Offset(cityX - tl.size.width / 2f, cityY + 4f))
                                 }
                             }
                         }
@@ -248,19 +243,18 @@ fun DotMatrixMap(
 
                     // ---- GPS position marker ----
                     if (isFixed && latitude != 0.0 && longitude != 0.0) {
-                        val posX = latLngToCanvas(latitude, longitude).x
-                        val posY = latLngToCanvas(latitude, longitude).y
+                        val pos = latLngToCanvas(latitude, longitude)
 
-                        drawCircle(PrimaryFixed.copy(alpha = pulseAlpha), pulseRadius, Offset(posX, posY))
-                        drawCircle(Primary, 5f, Offset(posX, posY))
-                        drawCircle(PrimaryFixed, 2.5f, Offset(posX, posY))
+                        drawCircle(PrimaryFixed.copy(alpha = pulseAlpha), pulseRadius, pos)
+                        drawCircle(Primary, 5f, pos)
+                        drawCircle(PrimaryFixed, 2.5f, pos)
 
                         val crossLen = 10f
                         val crossColor = PrimaryFixed.copy(alpha = 0.6f)
-                        drawLine(crossColor, Offset(posX - crossLen, posY), Offset(posX - 3f, posY), 1f)
-                        drawLine(crossColor, Offset(posX + 3f, posY), Offset(posX + crossLen, posY), 1f)
-                        drawLine(crossColor, Offset(posX, posY - crossLen), Offset(posX, posY - 3f), 1f)
-                        drawLine(crossColor, Offset(posX, posY + 3f), Offset(posX, posY + crossLen), 1f)
+                        drawLine(crossColor, Offset(pos.x - crossLen, pos.y), Offset(pos.x - 3f, pos.y), 1f)
+                        drawLine(crossColor, Offset(pos.x + 3f, pos.y), Offset(pos.x + crossLen, pos.y), 1f)
+                        drawLine(crossColor, Offset(pos.x, pos.y - crossLen), Offset(pos.x, pos.y - 3f), 1f)
+                        drawLine(crossColor, Offset(pos.x, pos.y + 3f), Offset(pos.x, pos.y + crossLen), 1f)
 
                         if (scale >= 0.8f) {
                             val coordText = String.format("%.2f\u00B0, %.2f\u00B0", latitude, longitude)
@@ -272,7 +266,7 @@ fun DotMatrixMap(
                                     fontFamily = FontFamily.Monospace
                                 )
                             )
-                            drawText(tl, topLeft = Offset(posX - tl.size.width / 2f, posY - 18f))
+                            drawText(tl, topLeft = Offset(pos.x - tl.size.width / 2f, pos.y - 18f))
                         }
                     }
                 } catch (_: Exception) { }
@@ -307,7 +301,7 @@ fun DotMatrixMap(
                     .padding(horizontal = 8.dp, vertical = 4.dp)
             ) {
                 Text(
-                    text = "\u26F6",  // ⛶ fullscreen symbol
+                    text = "\u26F6",
                     style = CodeSm,
                     color = OnSurfaceVariant
                 )

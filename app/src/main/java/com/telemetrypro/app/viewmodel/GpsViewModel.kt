@@ -5,7 +5,6 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
-import android.net.NetworkRequest
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.telemetrypro.app.data.GpsFixStatus
@@ -92,22 +91,38 @@ class GpsViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    private var connectivityManager: ConnectivityManager? = null
+
     private fun monitorNetwork(context: Context) {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return
+        connectivityManager = cm
         val callback = object : ConnectivityManager.NetworkCallback() {
-            override fun onAvailable(network: Network) { _isNetworkAvailable.value = true }
-            override fun onLost(network: Network) { _isNetworkAvailable.value = false }
+            override fun onAvailable(network: Network) {
+                checkNetworkImmediate()
+            }
+            override fun onLost(network: Network) {
+                checkNetworkImmediate()
+            }
             override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
                 _isNetworkAvailable.value = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             }
         }
-        val request = NetworkRequest.Builder()
-            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-            .build()
-        cm.registerNetworkCallback(request, callback)
-        val activeNetwork = cm.activeNetwork
-        val caps = if (activeNetwork != null) cm.getNetworkCapabilities(activeNetwork) else null
-        _isNetworkAvailable.value = caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+        // Use registerDefaultNetworkCallback for reliable tracking across all networks
+        cm.registerDefaultNetworkCallback(callback)
+        // Immediate check
+        checkNetworkImmediate()
+    }
+
+    /** Direct query of current network state — avoids callback race conditions */
+    private fun checkNetworkImmediate() {
+        val cm = connectivityManager ?: return
+        try {
+            val active = cm.activeNetwork ?: run { _isNetworkAvailable.value = false; return }
+            val caps = cm.getNetworkCapabilities(active) ?: run { _isNetworkAvailable.value = false; return }
+            _isNetworkAvailable.value = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        } catch (e: Exception) {
+            _isNetworkAvailable.value = false
+        }
     }
 
     fun setOnlineMode(enabled: Boolean) {
@@ -115,6 +130,8 @@ class GpsViewModel(application: Application) : AndroidViewModel(application) {
         prefs.edit().putBoolean("online_mode", enabled).apply()
         repository.onlineMode = enabled
         repository.restart()
+        // Refresh network status when user toggles online mode
+        checkNetworkImmediate()
     }
 
     fun setNmeaLoggingEnabled(enabled: Boolean) {
