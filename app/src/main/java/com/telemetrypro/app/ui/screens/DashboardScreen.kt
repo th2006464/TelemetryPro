@@ -9,20 +9,15 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.foundation.Canvas
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.material3.Text
+import com.telemetrypro.app.R
 import com.telemetrypro.app.data.GpsFixStatus
 import com.telemetrypro.app.data.LocationState
 import com.telemetrypro.app.ui.components.*
 import com.telemetrypro.app.ui.theme.*
 
-/**
- * Dashboard Screen — main overview with coordinates, map, constellations,
- * altitude, speed, SNR bars, and NMEA feed.
- */
 @Composable
 fun DashboardScreen(
     state: LocationState,
@@ -34,19 +29,17 @@ fun DashboardScreen(
             .background(Background)
             .verticalScroll(rememberScrollState())
     ) {
-        // TopAppBar
         TopAppBar(
             fixLabel = when (state.fixStatus) {
-                GpsFixStatus.FIXED -> "3D FIX"
-                GpsFixStatus.SEARCHING -> "ACQUIRING"
-                GpsFixStatus.NO_SIGNAL -> "NO SIGNAL"
+                GpsFixStatus.FIXED -> stringResource(R.string.fix_status_fixed)
+                GpsFixStatus.SEARCHING -> stringResource(R.string.fix_status_searching)
+                GpsFixStatus.NO_SIGNAL -> stringResource(R.string.fix_status_no_signal)
             },
             isFixed = state.fixStatus == GpsFixStatus.FIXED
         )
 
         Spacer(Modifier.height(8.dp))
 
-        // Flight mode banner
         if (state.flightMode.label.isNotEmpty()) {
             Box(
                 modifier = Modifier
@@ -58,23 +51,21 @@ fun DashboardScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = state.flightMode.label,
+                    text = stringResource(R.string.flight_mode_detected),
                     style = LabelCaps,
                     color = PrimaryFixedDim
                 )
             }
         }
 
-        // ---- Row 1: Coordinates + Mini Map ----
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Coordinates
             ReadoutTile(
-                label = "GNSS COORDINATES",
+                label = stringResource(R.string.dashboard_gnss_coords),
                 value = String.format("%.4f", state.latitude),
                 unit = if (state.latitude >= 0) "°N" else "°S",
                 subLabel = String.format("%.4f", state.longitude) +
@@ -83,7 +74,6 @@ fun DashboardScreen(
             )
         }
 
-        // ---- Row 2: Altitude + Speed ----
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -91,20 +81,19 @@ fun DashboardScreen(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             ReadoutTile(
-                label = "ALTITUDE",
+                label = stringResource(R.string.dashboard_altitude),
                 value = String.format("%.0f", state.altitudeMeters),
-                unit = "M MSL",
+                unit = stringResource(R.string.dashboard_unit_msl),
                 modifier = Modifier.weight(1f)
             )
             ReadoutTile(
-                label = "GROUND SPEED",
+                label = stringResource(R.string.dashboard_ground_speed),
                 value = String.format("%.1f", state.speedKmh),
-                unit = "KM/H",
+                unit = stringResource(R.string.dashboard_unit_kmh),
                 modifier = Modifier.weight(1f)
             )
         }
 
-        // ---- Row 3: Constellation Stats ----
         if (state.constellationStats.isNotEmpty()) {
             ConstellationStatsCard(
                 stats = state.constellationStats,
@@ -112,7 +101,6 @@ fun DashboardScreen(
             )
         }
 
-        // ---- Row 4: SNR Bar Graph ----
         if (state.satellites.isNotEmpty()) {
             SnrBarGraph(
                 satellites = state.satellites,
@@ -120,7 +108,6 @@ fun DashboardScreen(
             )
         }
 
-        // ---- Row 5: Fix metadata ----
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -128,26 +115,25 @@ fun DashboardScreen(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             ReadoutTile(
-                label = "SAT COUNT",
+                label = stringResource(R.string.dashboard_sat_count),
                 value = "${state.usedSatellites}/${state.totalSatellites}",
                 valueColor = Secondary,
                 modifier = Modifier.weight(1f)
             )
             ReadoutTile(
-                label = "ACCURACY",
+                label = stringResource(R.string.dashboard_accuracy),
                 value = String.format("%.1f", state.accuracy),
-                unit = "M",
+                unit = stringResource(R.string.dashboard_unit_m),
                 valueColor = if (state.accuracy < 10f) Secondary else OnSurfaceVariant,
                 modifier = Modifier.weight(1f)
             )
         }
 
-        // ---- NMEA Feed ----
         NmeaFeed(
             lines = state.nmeaLogLines,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
         )
 
-        Spacer(Modifier.height(80.dp)) // Bottom nav spacing
+        Spacer(Modifier.height(80.dp))
     }
 }

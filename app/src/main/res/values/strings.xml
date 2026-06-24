@@ -1,4 +1,108 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Telemetry Pro</string>
+
+    <!-- Top App Bar -->
+    <string name="fix_status_fixed">3D FIX</string>
+    <string name="fix_status_searching">搜索中</string>
+    <string name="fix_status_no_signal">无信号</string>
+    <string name="fix_status_tracking">追踪中</string>
+
+    <!-- Flight Mode -->
+    <string name="flight_mode_detected">⚠ 疑似飞行中 — 高空定位环境</string>
+
+    <!-- Bottom Nav -->
+    <string name="nav_dashboard">仪表盘</string>
+    <string name="nav_skyview">卫星天图</string>
+    <string name="nav_trends">趋势</string>
+    <string name="nav_settings">设置</string>
+
+    <!-- Dashboard -->
+    <string name="dashboard_gnss_coords">GNSS 坐标</string>
+    <string name="dashboard_altitude">气压高度</string>
+    <string name="dashboard_ground_speed">地面速度</string>
+    <string name="dashboard_sat_count">卫星数</string>
+    <string name="dashboard_accuracy">定位精度</string>
+    <string name="dashboard_unit_m">米</string>
+    <string name="dashboard_unit_kmh">公里/时</string>
+    <string name="dashboard_unit_msl">M 海拔</string>
+    <string name="dashboard_offline_mode">离线模式</string>
+
+    <!-- Skyview -->
+    <string name="skyview_svs_label">SVs</string>
+    <string name="skyview_inventory">卫星清单</string>
+    <string name="skyview_header_sv">编号</string>
+    <string name="skyview_header_sys">星座</string>
+    <string name="skyview_header_el">仰角</string>
+    <string name="skyview_header_az">方位</string>
+    <string name="skyview_header_snr">SNR</string>
+    <string name="skyview_header_lock">锁定</string>
+    <string name="skyview_searching">正在搜索卫星…</string>
+
+    <!-- Lock Status -->
+    <string name="lock_locked">已锁定</string>
+    <string name="lock_syncing">同步中</string>
+    <string name="lock_searching">搜索中</string>
+
+    <!-- Trends -->
+    <string name="trends_velocity_profile">速度曲线</string>
+    <string name="trends_altitude_trend">高度趋势</string>
+    <string name="trends_vsi">垂直速度</string>
+    <string name="trends_terrain_context">地形背景</string>
+    <string name="trends_alt_label">海拔 %dm</string>
+
+    <!-- NMEA Feed -->
+    <string name="nmea_raw_stream">NMEA 原始数据流</string>
+    <string name="nmea_logging">记录中…</string>
+    <string name="nmea_idle">空闲</string>
+    <string name="nmea_waiting">等待 NMEA 数据…</string>
+
+    <!-- Settings -->
+    <string name="settings_title">系统配置</string>
+    <string name="settings_subtitle">控制面板 v4.2.0 // 离线模式运行中</string>
+    <string name="settings_distance_unit">距离单位</string>
+    <string name="settings_metric_km">公制 (km)</string>
+    <string name="settings_imperial_mi">英制 (mi)</string>
+    <string name="settings_velocity_unit">速度单位</string>
+    <string name="settings_coord_system">坐标参考系</string>
+    <string name="settings_crs_dd">十进制度 (DD)</string>
+    <string name="settings_crs_dms">度分秒 (DMS)</string>
+    <string name="settings_crs_utm">UTM / UPS</string>
+    <string name="settings_crs_dd_example">40.7128°N, 74.0060°W</string>
+    <string name="settings_crs_dms_example">40°42\'46\"N</string>
+    <string name="settings_crs_utm_example">18T 583944 4507345</string>
+    <string name="settings_altitude_ref">高度基准</string>
+    <string name="settings_altitude_msl">平均海平面 (MSL)</string>
+    <string name="settings_language">界面语言</string>
+    <string name="settings_lang_chinese">中文</string>
+    <string name="settings_lang_english">English</string>
+    <string name="settings_local_storage">本地存储</string>
+    <string name="settings_export_nmea">导出 NMEA 日志</string>
+    <string name="settings_export_subtitle">24.8 MB 可用于同步</string>
+    <string name="settings_clear_cache">清除本地缓存</string>
+    <string name="settings_clear_cache_subtitle">删除所有离线地图数据</string>
+    <string name="settings_export_btn">导出</string>
+    <string name="settings_delete_btn">删除</string>
+    <string name="settings_interface_profile">界面配置</string>
+    <string name="settings_tactical_dark">战术暗色</string>
+    <string name="settings_luminance_desc">亮度限制为 15cd/m²</string>
+    <string name="settings_theme_disabled">野外模式下禁用标准主题。</string>
+    <string name="settings_privacy_title">纯本地 &amp; 离线</string>
+    <string name="settings_privacy_desc">TELEMETRY PRO 不会传输任何个人数据。所有 NMEA 语句、坐标日志和地图缓存均仅存储在您的设备上。</string>
+    <string name="settings_privacy_protocol">隐私协议</string>
+    <string name="settings_system_manifest">系统清单</string>
+
+    <!-- GPS Permission -->
+    <!-- Constellation -->
+    <string name="constellations_title">星座系统</string>
+    <string name="no_data">无数据</string>
+
+    <!-- SNR -->
+    <string name="snr_signal_strength">信号强度</string>
+    <string name="snr_dbhz">SNR dB-Hz</string>
+    <string name="snr_no_data">无卫星数据</string>
+
+    <!-- GPS Permission -->
+    <string name="gps_started">GPS 监控已启动</string>
+    <string name="lang_changed">语言已切换，请重启应用</string>
 </resources>

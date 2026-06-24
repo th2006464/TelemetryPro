@@ -16,16 +16,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.telemetrypro.app.R
 import com.telemetrypro.app.ui.theme.*
 
-/**
- * Bottom navigation bar with 4 tabs: Dashboard / Skyview / Trends / Settings.
- * Replicates the HTML bottom nav from original pages.
- */
 @Composable
 fun BottomNavBar(
     selectedIndex: Int,
@@ -33,10 +30,10 @@ fun BottomNavBar(
     modifier: Modifier = Modifier
 ) {
     val tabs = listOf(
-        NavTab("Dashboard", "dashboard"),
-        NavTab("Skyview", "explore"),
-        NavTab("Trends", "trending_up"),
-        NavTab("Settings", "settings")
+        NavTab(stringResource(R.string.nav_dashboard), "dashboard"),
+        NavTab(stringResource(R.string.nav_skyview), "explore"),
+        NavTab(stringResource(R.string.nav_trends), "trending_up"),
+        NavTab(stringResource(R.string.nav_settings), "settings")
     )
 
     Row(

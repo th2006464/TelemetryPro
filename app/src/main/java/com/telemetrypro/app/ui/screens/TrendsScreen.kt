@@ -15,20 +15,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.telemetrypro.app.R
 import com.telemetrypro.app.data.LocationState
 import com.telemetrypro.app.ui.components.NmeaFeed
 import com.telemetrypro.app.ui.components.TopAppBar
 import com.telemetrypro.app.ui.theme.*
 import kotlin.math.min as mathMin
 
-/**
- * Trends Screen — speedometer ring, altitude trend chart,
- * vertical speed indicator, terrain context.
- */
 @Composable
 fun TrendsScreen(
     state: LocationState,
@@ -41,7 +38,7 @@ fun TrendsScreen(
             .verticalScroll(rememberScrollState())
     ) {
         TopAppBar(
-            fixLabel = "TRACKING",
+            fixLabel = stringResource(R.string.fix_status_tracking),
             isFixed = state.speedKmh > 0
         )
 
@@ -84,10 +81,6 @@ fun TrendsScreen(
     }
 }
 
-// ============================================================
-// Speedometer Ring
-// ============================================================
-
 @Composable
 private fun SpeedometerCard(
     speedKmh: Float,
@@ -114,7 +107,6 @@ private fun SpeedometerCard(
             val arcSize = Size(radius * 2f, radius * 2f)
             val arcOffset = Offset(cx - radius, cy - radius)
 
-            // Background ring
             drawArc(
                 color = SurfaceContainerHighest,
                 startAngle = 135f,
@@ -125,7 +117,6 @@ private fun SpeedometerCard(
                 style = Stroke(width = 16f)
             )
 
-            // Active ring
             drawArc(
                 color = PrimaryFixedDim,
                 startAngle = 135f,
@@ -147,14 +138,14 @@ private fun SpeedometerCard(
                 color = PrimaryFixedDim
             )
             Text(
-                text = "KM/H",
+                text = stringResource(R.string.dashboard_unit_kmh),
                 style = LabelCaps,
                 color = OnSurfaceVariant
             )
         }
 
         Text(
-            text = "VELOCITY PROFILE",
+            text = stringResource(R.string.trends_velocity_profile),
             style = LabelCaps,
             color = OnSurfaceVariant,
             modifier = Modifier
@@ -163,10 +154,6 @@ private fun SpeedometerCard(
         )
     }
 }
-
-// ============================================================
-// Altitude Trend Chart
-// ============================================================
 
 @Composable
 private fun AltitudeTrendCard(
@@ -223,7 +210,7 @@ private fun AltitudeTrendCard(
         }
 
         Text(
-            "ALTITUDE TREND",
+            stringResource(R.string.trends_altitude_trend),
             style = LabelCaps,
             color = OnSurfaceVariant,
             modifier = Modifier
@@ -232,10 +219,6 @@ private fun AltitudeTrendCard(
         )
     }
 }
-
-// ============================================================
-// Vertical Speed Indicator
-// ============================================================
 
 @Composable
 private fun VsiCard(
@@ -248,7 +231,7 @@ private fun VsiCard(
             .aspectRatio(0.6f)
     ) {
         Text(
-            "VSI",
+            stringResource(R.string.trends_vsi),
             style = LabelCaps,
             color = OnSurfaceVariant,
             modifier = Modifier
@@ -295,10 +278,6 @@ private fun VsiCard(
     }
 }
 
-// ============================================================
-// Terrain Context Card
-// ============================================================
-
 @Composable
 private fun TerrainCard(
     altitude: Double,
@@ -339,8 +318,12 @@ private fun TerrainCard(
         Column(
             modifier = Modifier.align(Alignment.BottomStart).padding(12.dp)
         ) {
-            Text("TERRAIN CONTEXT", style = LabelCaps, color = PrimaryFixedDim)
-            Text("ALT ${altitude.toInt()}m", style = TelemetryMd, color = OnSurfaceVariant)
+            Text(stringResource(R.string.trends_terrain_context), style = LabelCaps, color = PrimaryFixedDim)
+            Text(
+                stringResource(R.string.trends_alt_label).replace("%d", altitude.toInt().toString()),
+                style = TelemetryMd,
+                color = OnSurfaceVariant
+            )
             Text(
                 String.format("%.4f, %.4f", latitude, longitude),
                 style = CodeSm,

@@ -1,5 +1,6 @@
 package com.telemetrypro.app.ui.screens
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -13,17 +14,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.telemetrypro.app.LocaleHelper
+import com.telemetrypro.app.R
 import com.telemetrypro.app.ui.components.TopAppBar
 import com.telemetrypro.app.ui.theme.*
 
-/**
- * Settings Screen — units, coordinate format, data management, privacy.
- */
 @Composable
 fun SettingsScreen(
+    onLanguageChanged: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val isZh = LocaleHelper.isZh(context)
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -31,21 +37,20 @@ fun SettingsScreen(
             .verticalScroll(rememberScrollState())
     ) {
         TopAppBar(
-            fixLabel = "OFFLINE MODE",
+            fixLabel = stringResource(R.string.dashboard_offline_mode),
             isFixed = false
         )
 
         Spacer(Modifier.height(8.dp))
 
-        // Header
         Text(
-            "System Configuration",
+            stringResource(R.string.settings_title),
             style = HeadlineLgMobile,
             color = OnBackground,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
         )
         Text(
-            "CONTROL PANEL v4.2.0 // OFFLINE MODE ACTIVE",
+            stringResource(R.string.settings_subtitle),
             style = CodeSm,
             color = OnSurfaceVariant.copy(alpha = 0.7f),
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
@@ -53,14 +58,58 @@ fun SettingsScreen(
 
         Spacer(Modifier.height(8.dp))
 
+        // ---- Language ----
+        SettingsTile(
+            title = stringResource(R.string.settings_language),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val langOptions = listOf(
+                    "zh" to stringResource(R.string.settings_lang_chinese),
+                    "en" to stringResource(R.string.settings_lang_english)
+                )
+                langOptions.forEach { (code, label) ->
+                    val isSelected = (code == "zh" && isZh) || (code == "en" && !isZh)
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .background(
+                                if (isSelected) PrimaryContainer.copy(alpha = 0.2f) else SurfaceContainerHigh,
+                                RoundedCornerShape(8.dp)
+                            )
+                            .border(
+                                1.dp,
+                                if (isSelected) PrimaryFixedDim else OutlineVariant,
+                                RoundedCornerShape(8.dp)
+                            )
+                            .clickable {
+                                if (code != if (isZh) "zh" else "en") {
+                                    LocaleHelper.setLanguage(context, code)
+                                    Toast.makeText(context, context.getString(R.string.lang_changed), Toast.LENGTH_SHORT).show()
+                                    onLanguageChanged()
+                                }
+                            }
+                            .padding(12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            label,
+                            style = TelemetryMd,
+                            color = if (isSelected) PrimaryFixedDim else OnSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+
         // ---- Distance Unit ----
         SettingsTile(
-            title = "DISTANCE UNIT",
+            title = stringResource(R.string.settings_distance_unit),
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
         ) {
             var selected by remember { mutableStateOf(0) }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("METRIC (km)", "IMPERIAL (mi)").forEachIndexed { i, label ->
+                listOf(stringResource(R.string.settings_metric_km), stringResource(R.string.settings_imperial_mi)).forEachIndexed { i, label ->
                     val isSelected = i == selected
                     Box(
                         modifier = Modifier
@@ -90,7 +139,7 @@ fun SettingsScreen(
 
         // ---- Speed Unit ----
         SettingsTile(
-            title = "VELOCITY VECTOR",
+            title = stringResource(R.string.settings_velocity_unit),
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
         ) {
             var selected by remember { mutableStateOf(0) }
@@ -125,14 +174,14 @@ fun SettingsScreen(
 
         // ---- Coordinate System ----
         SettingsTile(
-            title = "COORDINATE REFERENCE SYSTEM",
+            title = stringResource(R.string.settings_coord_system),
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 val systems = listOf(
-                    Triple("Decimal Degrees (DD)", "40.7128°N, 74.0060°W", true),
-                    Triple("Deg Min Sec (DMS)", "40°42'46\"N", false),
-                    Triple("UTM / UPS", "18T 583944 4507345", false)
+                    Triple(stringResource(R.string.settings_crs_dd), stringResource(R.string.settings_crs_dd_example), true),
+                    Triple(stringResource(R.string.settings_crs_dms), stringResource(R.string.settings_crs_dms_example), false),
+                    Triple(stringResource(R.string.settings_crs_utm), stringResource(R.string.settings_crs_utm_example), false)
                 )
                 systems.forEach { (name, example, enabled) ->
                     Box(
@@ -159,8 +208,8 @@ fun SettingsScreen(
 
         // ---- Altitude Unit ----
         SettingsTile(
-            title = "ALTITUDE REFERENCE",
-            subtitle = "Mean Sea Level (MSL)",
+            title = stringResource(R.string.settings_altitude_ref),
+            subtitle = stringResource(R.string.settings_altitude_msl),
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
         ) {
             var selected by remember { mutableStateOf(0) }
@@ -194,7 +243,7 @@ fun SettingsScreen(
 
         // ---- Data Management ----
         SettingsTile(
-            title = "LOCAL STORAGE",
+            title = stringResource(R.string.settings_local_storage),
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -211,10 +260,10 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Column {
-                            Text("Export NMEA Logs", style = TelemetryMd, color = OnSurface)
-                            Text("24.8 MB available for sync", style = CodeSm, color = OnSurfaceVariant)
+                            Text(stringResource(R.string.settings_export_nmea), style = TelemetryMd, color = OnSurface)
+                            Text(stringResource(R.string.settings_export_subtitle), style = CodeSm, color = OnSurfaceVariant)
                         }
-                        Text("DL", style = LabelCaps, color = OnSurfaceVariant)
+                        Text(stringResource(R.string.settings_export_btn), style = LabelCaps, color = OnSurfaceVariant)
                     }
                 }
 
@@ -231,10 +280,10 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Column {
-                            Text("Clear Local Cache", style = TelemetryMd, color = Error)
-                            Text("Delete all offline maps", style = CodeSm, color = OnSurfaceVariant)
+                            Text(stringResource(R.string.settings_clear_cache), style = TelemetryMd, color = Error)
+                            Text(stringResource(R.string.settings_clear_cache_subtitle), style = CodeSm, color = OnSurfaceVariant)
                         }
-                        Text("DEL", style = LabelCaps, color = Error)
+                        Text(stringResource(R.string.settings_delete_btn), style = LabelCaps, color = Error)
                     }
                 }
             }
@@ -242,7 +291,7 @@ fun SettingsScreen(
 
         // ---- Theme Locked ----
         SettingsTile(
-            title = "INTERFACE PROFILE",
+            title = stringResource(R.string.settings_interface_profile),
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
         ) {
             Box(
@@ -256,13 +305,13 @@ fun SettingsScreen(
                     Text("\uD83C\uDF19", style = TelemetryMd)
                     Spacer(Modifier.width(12.dp))
                     Column {
-                        Text("Tactical Dark", style = TelemetryMd, color = PrimaryFixedDim)
-                        Text("Luminance restricted to 15cd/m2", style = CodeSm, color = PrimaryFixedDim.copy(alpha = 0.7f))
+                        Text(stringResource(R.string.settings_tactical_dark), style = TelemetryMd, color = PrimaryFixedDim)
+                        Text(stringResource(R.string.settings_luminance_desc), style = CodeSm, color = PrimaryFixedDim.copy(alpha = 0.7f))
                     }
                 }
             }
             Text(
-                "Standard themes disabled in field mode.",
+                stringResource(R.string.settings_theme_disabled),
                 style = CodeSm,
                 color = OnSurfaceVariant,
                 modifier = Modifier.padding(top = 8.dp)
@@ -279,17 +328,17 @@ fun SettingsScreen(
                 .padding(16.dp)
         ) {
             Column {
-                Text("Purely Local & Offline", style = TelemetryMd, color = PrimaryFixedDim)
+                Text(stringResource(R.string.settings_privacy_title), style = TelemetryMd, color = PrimaryFixedDim)
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "TELEMETRY PRO transmits no personal data. All NMEA sentences, coordinate logs, and mapping caches are stored exclusively on your device.",
+                    stringResource(R.string.settings_privacy_desc),
                     style = BodyMd,
                     color = OnSurfaceVariant
                 )
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text("Privacy Protocol", style = CodeSm, color = PrimaryFixedDim)
-                    Text("System Manifest", style = CodeSm, color = PrimaryFixedDim)
+                    Text(stringResource(R.string.settings_privacy_protocol), style = CodeSm, color = PrimaryFixedDim)
+                    Text(stringResource(R.string.settings_system_manifest), style = CodeSm, color = PrimaryFixedDim)
                 }
             }
         }
@@ -297,10 +346,6 @@ fun SettingsScreen(
         Spacer(Modifier.height(80.dp))
     }
 }
-
-// ============================================================
-// Settings Tile wrapper
-// ============================================================
 
 @Composable
 private fun SettingsTile(

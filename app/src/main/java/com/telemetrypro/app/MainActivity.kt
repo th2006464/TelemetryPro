@@ -1,6 +1,8 @@
 package com.telemetrypro.app
 
 import android.Manifest
+import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -30,8 +32,17 @@ import com.telemetrypro.app.ui.theme.TelemetryProTheme
 import com.telemetrypro.app.viewmodel.GpsViewModel
 
 class MainActivity : ComponentActivity() {
+
+    override fun attachBaseContext(newBase: Context?) {
+        val wrapped = if (newBase != null) {
+            LocaleHelper.wrapContext(newBase)
+        } else newBase
+        super.attachBaseContext(wrapped)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        LocaleHelper.init(this)
 
         setContent {
             TelemetryProTheme {
@@ -65,7 +76,7 @@ private fun MainApp() {
         permissionGranted = granted
         if (granted) {
             viewModel.startMonitoring()
-            Toast.makeText(context, "GPS monitoring started", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.gps_started), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -73,17 +84,10 @@ private fun MainApp() {
     LaunchedEffect(Unit) {
         if (!permissionGranted) {
             launcher.launch(
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    arrayOf(
-                        Manifest.permission.ACCESS_FINE_LOCATION,
-                        Manifest.permission.ACCESS_COARSE_LOCATION
-                    )
-                } else {
-                    arrayOf(
-                        Manifest.permission.ACCESS_FINE_LOCATION,
-                        Manifest.permission.ACCESS_COARSE_LOCATION
-                    )
-                }
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
             )
         } else {
             viewModel.startMonitoring()
@@ -112,7 +116,15 @@ private fun MainApp() {
                 0 -> DashboardScreen(state = state)
                 1 -> SkyviewScreen(state = state)
                 2 -> TrendsScreen(state = state)
-                3 -> SettingsScreen()
+                3 -> SettingsScreen(
+                    onLanguageChanged = {
+                        // Restart activity to apply new locale
+                        val intent = Intent(context, MainActivity::class.java)
+                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                        context.startActivity(intent)
+                        Runtime.getRuntime().exit(0)
+                    }
+                )
             }
         }
 

@@ -11,8 +11,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.telemetrypro.app.R
 import com.telemetrypro.app.ui.theme.CodeSm
 import com.telemetrypro.app.ui.theme.LabelCaps
 import com.telemetrypro.app.ui.theme.OnSurfaceVariant
@@ -22,16 +24,9 @@ import com.telemetrypro.app.ui.theme.SurfaceContainerLow
 import com.telemetrypro.app.ui.theme.SurfaceContainerLowest
 import com.telemetrypro.app.ui.theme.Secondary
 
-/**
- * TopAppBar component — "TELEMETRY PRO" branding + GPS fix status.
- * Replicates the HTML <header> from all original pages.
- *
- * @param fixLabel GPS status text (e.g. "3D FIX", "ACQUIRING", "NO SIGNAL")
- * @param isFixed whether a 3D fix is currently active (controls pip color)
- */
 @Composable
 fun TopAppBar(
-    fixLabel: String = "3D FIX",
+    fixLabel: String = stringResource(R.string.fix_status_fixed),
     isFixed: Boolean = true,
     modifier: Modifier = Modifier
 ) {
@@ -45,25 +40,23 @@ fun TopAppBar(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Left: Satellite icon + branding
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = "\uD83D\uDEE7", // 🛰 satellite emoji fallback
+                text = "\uD83D\uDEE7",
                 style = LabelCaps,
                 color = OnSurfaceVariant
             )
             Text(
-                text = "TELEMETRY PRO",
+                text = stringResource(R.string.app_name),
                 style = LabelCaps,
                 color = OnSurface,
                 letterSpacing = androidx.compose.ui.unit.TextUnit(3f, androidx.compose.ui.unit.TextUnitType.Sp)
             )
         }
 
-        // Right: Fix status pip + label
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)

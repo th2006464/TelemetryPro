@@ -10,17 +10,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.telemetrypro.app.R
 import com.telemetrypro.app.data.SatelliteInfo
 import com.telemetrypro.app.ui.theme.*
 
-/**
- * SNR horizontal bar chart with constellation-colored bars.
- * Each bar represents one satellite, colored by its constellation.
- */
 @Composable
 fun SnrBarGraph(
     satellites: List<SatelliteInfo>,
@@ -32,19 +28,18 @@ fun SnrBarGraph(
             .border(1.dp, TileBorder, RoundedCornerShape(12.dp))
             .padding(12.dp)
     ) {
-        // Title row
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text("SIGNAL STRENGTH", style = LabelCaps, color = OnSurfaceVariant)
-            Text("SNR dB-Hz", style = CodeSm, color = OnSurfaceVariant.copy(alpha = 0.6f))
+            Text(stringResource(R.string.snr_signal_strength), style = LabelCaps, color = OnSurfaceVariant)
+            Text(stringResource(R.string.snr_dbhz), style = CodeSm, color = OnSurfaceVariant.copy(alpha = 0.6f))
         }
 
         Spacer(Modifier.height(12.dp))
 
         if (satellites.isEmpty()) {
-            Text("No satellite data", style = CodeSm, color = OnSurfaceVariant.copy(alpha = 0.4f))
+            Text(stringResource(R.string.snr_no_data), style = CodeSm, color = OnSurfaceVariant.copy(alpha = 0.4f))
         } else {
             val maxSnr = 50f
             val sorted = satellites.sortedByDescending { it.snr }
@@ -92,7 +87,6 @@ fun SnrBarGraph(
                 }
             }
 
-            // Constellation legend
             Spacer(Modifier.height(8.dp))
             val legendConstellations = satellites.map { it.constellation }.distinct()
             Row(

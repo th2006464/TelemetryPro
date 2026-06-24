@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Telemetry Pro</string>
+
+    <!-- Top App Bar -->
+    <string name="fix_status_fixed">3D FIX</string>
+    <string name="fix_status_searching">ACQUIRING</string>
+    <string name="fix_status_no_signal">NO SIGNAL</string>
+    <string name="fix_status_tracking">TRACKING</string>
+
+    <!-- Flight Mode -->
+    <string name="flight_mode_detected">⚠ FLIGHT DETECTED — High-altitude environment</string>
+
+    <!-- Bottom Nav -->
+    <string name="nav_dashboard">Dashboard</string>
+    <string name="nav_skyview">Skyview</string>
+    <string name="nav_trends">Trends</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- Dashboard -->
+    <string name="dashboard_gnss_coords">GNSS COORDINATES</string>
+    <string name="dashboard_altitude">ALTITUDE</string>
+    <string name="dashboard_ground_speed">GROUND SPEED</string>
+    <string name="dashboard_sat_count">SAT COUNT</string>
+    <string name="dashboard_accuracy">ACCURACY</string>
+    <string name="dashboard_unit_m">M</string>
+    <string name="dashboard_unit_kmh">KM/H</string>
+    <string name="dashboard_unit_msl">M MSL</string>
+    <string name="dashboard_offline_mode">OFFLINE MODE</string>
+
+    <!-- Skyview -->
+    <string name="skyview_svs_label">SVs</string>
+    <string name="skyview_inventory">SATELLITE INVENTORY</string>
+    <string name="skyview_header_sv">SV#</string>
+    <string name="skyview_header_sys">SYS</string>
+    <string name="skyview_header_el">EL</string>
+    <string name="skyview_header_az">AZ</string>
+    <string name="skyview_header_snr">SNR</string>
+    <string name="skyview_header_lock">LOCK</string>
+    <string name="skyview_searching">Searching for satellites…</string>
+
+    <!-- Lock Status -->
+    <string name="lock_locked">LOCKED</string>
+    <string name="lock_syncing">SYNCING</string>
+    <string name="lock_searching">SEARCH</string>
+
+    <!-- Trends -->
+    <string name="trends_velocity_profile">VELOCITY PROFILE</string>
+    <string name="trends_altitude_trend">ALTITUDE TREND</string>
+    <string name="trends_vsi">VSI</string>
+    <string name="trends_terrain_context">TERRAIN CONTEXT</string>
+    <string name="trends_alt_label">ALT %dm</string>
+
+    <!-- NMEA Feed -->
+    <string name="nmea_raw_stream">RAW NMEA STREAM</string>
+    <string name="nmea_logging">LOGGING…</string>
+    <string name="nmea_idle">IDLE</string>
+    <string name="nmea_waiting">Waiting for NMEA data…</string>
+
+    <!-- Settings -->
+    <string name="settings_title">System Configuration</string>
+    <string name="settings_subtitle">CONTROL PANEL v4.2.0 // OFFLINE MODE ACTIVE</string>
+    <string name="settings_distance_unit">DISTANCE UNIT</string>
+    <string name="settings_metric_km">METRIC (km)</string>
+    <string name="settings_imperial_mi">IMPERIAL (mi)</string>
+    <string name="settings_velocity_unit">VELOCITY VECTOR</string>
+    <string name="settings_coord_system">COORDINATE REFERENCE SYSTEM</string>
+    <string name="settings_crs_dd">Decimal Degrees (DD)</string>
+    <string name="settings_crs_dms">Deg Min Sec (DMS)</string>
+    <string name="settings_crs_utm">UTM / UPS</string>
+    <string name="settings_crs_dd_example">40.7128°N, 74.0060°W</string>
+    <string name="settings_crs_dms_example">40°42\'46\"N</string>
+    <string name="settings_crs_utm_example">18T 583944 4507345</string>
+    <string name="settings_altitude_ref">ALTITUDE REFERENCE</string>
+    <string name="settings_altitude_msl">Mean Sea Level (MSL)</string>
+    <string name="settings_language">LANGUAGE</string>
+    <string name="settings_lang_chinese">中文</string>
+    <string name="settings_lang_english">English</string>
+    <string name="settings_local_storage">LOCAL STORAGE</string>
+    <string name="settings_export_nmea">Export NMEA Logs</string>
+    <string name="settings_export_subtitle">24.8 MB available for sync</string>
+    <string name="settings_clear_cache">Clear Local Cache</string>
+    <string name="settings_clear_cache_subtitle">Delete all offline maps</string>
+    <string name="settings_export_btn">DL</string>
+    <string name="settings_delete_btn">DEL</string>
+    <string name="settings_interface_profile">INTERFACE PROFILE</string>
+    <string name="settings_tactical_dark">Tactical Dark</string>
+    <string name="settings_luminance_desc">Luminance restricted to 15cd/m²</string>
+    <string name="settings_theme_disabled">Standard themes disabled in field mode.</string>
+    <string name="settings_privacy_title">Purely Local &amp; Offline</string>
+    <string name="settings_privacy_desc">TELEMETRY PRO transmits no personal data. All NMEA sentences, coordinate logs, and mapping caches are stored exclusively on your device.</string>
+    <string name="settings_privacy_protocol">Privacy Protocol</string>
+    <string name="settings_system_manifest">System Manifest</string>
+
+    <!-- Constellation -->
+    <string name="constellations_title">CONSTELLATIONS</string>
+    <string name="no_data">No data</string>
+
+    <!-- SNR -->
+    <string name="snr_signal_strength">SIGNAL STRENGTH</string>
+    <string name="snr_dbhz">SNR dB-Hz</string>
+    <string name="snr_no_data">No satellite data</string>
+
+    <!-- GPS Permission -->
+    <string name="gps_started">GPS monitoring started</string>
+    <string name="lang_changed">Language changed, restart to apply</string>
+</resources>

@@ -14,23 +14,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
-import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.telemetrypro.app.R
 import com.telemetrypro.app.data.LocationState
+import com.telemetrypro.app.data.LockStatus
 import com.telemetrypro.app.data.SatelliteInfo
 import com.telemetrypro.app.ui.components.TopAppBar
 import com.telemetrypro.app.ui.theme.*
 import kotlin.math.*
 
-/**
- * Skyview Screen — radar-style satellite constellation viewer.
- * Shows rotating radar scan, satellite positions by constellation color,
- * and a detailed satellite inventory table.
- */
 @Composable
 fun SkyviewScreen(
     state: LocationState,
@@ -42,14 +38,14 @@ fun SkyviewScreen(
             .background(Background)
             .verticalScroll(rememberScrollState())
     ) {
+        val svsLabel = stringResource(R.string.skyview_svs_label)
         TopAppBar(
-            fixLabel = "${state.usedSatellites}/${state.totalSatellites} SVs",
+            fixLabel = "${state.usedSatellites}/${state.totalSatellites} $svsLabel",
             isFixed = state.usedSatellites > 0
         )
 
         Spacer(Modifier.height(8.dp))
 
-        // ---- Radar Display ----
         RadarDisplay(
             satellites = state.satellites,
             modifier = Modifier
@@ -58,7 +54,6 @@ fun SkyviewScreen(
                 .padding(16.dp)
         )
 
-        // ---- Constellation Legend ----
         if (state.constellationStats.isNotEmpty()) {
             Row(
                 modifier = Modifier
@@ -89,7 +84,6 @@ fun SkyviewScreen(
 
         Spacer(Modifier.height(12.dp))
 
-        // ---- Satellite Inventory Table ----
         SatelliteTable(
             satellites = state.satellites,
             modifier = Modifier
@@ -100,10 +94,6 @@ fun SkyviewScreen(
         Spacer(Modifier.height(80.dp))
     }
 }
-
-// ============================================================
-// Radar Display
-// ============================================================
 
 @Composable
 private fun RadarDisplay(
@@ -130,7 +120,6 @@ private fun RadarDisplay(
         val cy = size.height / 2
         val maxRadius = min(cx, cy) * 0.85f
 
-        // Concentric rings
         for (r in arrayOf(0.25f, 0.5f, 0.75f, 1f)) {
             drawCircle(
                 color = OutlineVariant.copy(alpha = 0.3f),
@@ -140,7 +129,6 @@ private fun RadarDisplay(
             )
         }
 
-        // Cross hairs
         drawLine(
             color = OutlineVariant.copy(alpha = 0.15f),
             start = Offset(cx - maxRadius, cy),
@@ -154,11 +142,6 @@ private fun RadarDisplay(
             strokeWidth = 1f
         )
 
-        // Cardinal labels
-        val labels = listOf("N" to 0f, "E" to 90f, "S" to 180f, "W" to 270f)
-        // Labels drawn via drawContext (not native canvas for simplicity, skip small text)
-
-        // Sweep line
         rotate(sweepAngle, pivot = Offset(cx, cy)) {
             drawArc(
                 color = PrimaryFixedDim.copy(alpha = 0.12f),
@@ -176,7 +159,6 @@ private fun RadarDisplay(
             )
         }
 
-        // Satellite blips
         satellites.forEach { sat ->
             if (sat.elevation > 0) {
                 val elRad = Math.toRadians((90.0 - sat.elevation).toDouble()).toFloat()
@@ -188,13 +170,11 @@ private fun RadarDisplay(
                 val blipCx = cx + dx
                 val blipCy = cy + dy
 
-                // Outer glow
                 drawCircle(
                     color = sat.constellation.color.copy(alpha = 0.15f),
                     radius = 8f,
                     center = Offset(blipCx, blipCy)
                 )
-                // Core dot
                 drawCircle(
                     color = sat.constellation.color.copy(alpha = 0.9f),
                     radius = 3f,
@@ -203,7 +183,6 @@ private fun RadarDisplay(
             }
         }
 
-        // Center dot
         drawCircle(
             color = PrimaryFixedDim,
             radius = 4f,
@@ -211,10 +190,6 @@ private fun RadarDisplay(
         )
     }
 }
-
-// ============================================================
-// Satellite Inventory Table
-// ============================================================
 
 @Composable
 private fun SatelliteTable(
@@ -227,27 +202,26 @@ private fun SatelliteTable(
             .border(1.dp, TileBorder, RoundedCornerShape(12.dp))
             .padding(12.dp)
     ) {
-        Text("SATELLITE INVENTORY", style = LabelCaps, color = OnSurfaceVariant)
+        Text(stringResource(R.string.skyview_inventory), style = LabelCaps, color = OnSurfaceVariant)
         Spacer(Modifier.height(8.dp))
 
-        // Header
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text("SV#", style = CodeSm, color = OnSurfaceVariant, modifier = Modifier.width(44.dp))
-            Text("SYS", style = CodeSm, color = OnSurfaceVariant, modifier = Modifier.width(60.dp))
-            Text("EL", style = CodeSm, color = OnSurfaceVariant, modifier = Modifier.width(36.dp))
-            Text("AZ", style = CodeSm, color = OnSurfaceVariant, modifier = Modifier.width(40.dp))
-            Text("SNR", style = CodeSm, color = OnSurfaceVariant, modifier = Modifier.weight(0.3f))
-            Text("LOCK", style = CodeSm, color = OnSurfaceVariant, modifier = Modifier.width(56.dp))
+            Text(stringResource(R.string.skyview_header_sv), style = CodeSm, color = OnSurfaceVariant, modifier = Modifier.width(44.dp))
+            Text(stringResource(R.string.skyview_header_sys), style = CodeSm, color = OnSurfaceVariant, modifier = Modifier.width(60.dp))
+            Text(stringResource(R.string.skyview_header_el), style = CodeSm, color = OnSurfaceVariant, modifier = Modifier.width(36.dp))
+            Text(stringResource(R.string.skyview_header_az), style = CodeSm, color = OnSurfaceVariant, modifier = Modifier.width(40.dp))
+            Text(stringResource(R.string.skyview_header_snr), style = CodeSm, color = OnSurfaceVariant, modifier = Modifier.weight(0.3f))
+            Text(stringResource(R.string.skyview_header_lock), style = CodeSm, color = OnSurfaceVariant, modifier = Modifier.width(56.dp))
         }
 
         Spacer(Modifier.height(2.dp))
 
         if (satellites.isEmpty()) {
             Text(
-                "Searching for satellites...",
+                stringResource(R.string.skyview_searching),
                 style = CodeSm,
                 color = OnSurfaceVariant.copy(alpha = 0.4f),
                 modifier = Modifier.padding(vertical = 8.dp)
@@ -288,29 +262,31 @@ private fun SatelliteTable(
                         modifier = Modifier.width(40.dp)
                     )
 
-                    // SNR mini bar
                     Canvas(
                         modifier = Modifier
                             .weight(0.3f)
                             .height(4.dp)
                     ) {
                         val ratio = (sat.snr / 50f).coerceIn(0f, 1f)
-                        drawRect(
-                            color = SurfaceContainerHighest
-                        )
+                        drawRect(color = SurfaceContainerHighest)
                         drawRect(
                             color = sat.constellation.color,
                             size = Size(size.width * ratio, size.height)
                         )
                     }
 
+                    val lockLabel = when (sat.lockStatus) {
+                        LockStatus.LOCKED -> stringResource(R.string.lock_locked)
+                        LockStatus.SYNCING -> stringResource(R.string.lock_syncing)
+                        LockStatus.SEARCHING -> stringResource(R.string.lock_searching)
+                    }
                     Text(
-                        sat.lockStatus.label,
+                        lockLabel,
                         style = CodeSm,
                         color = when (sat.lockStatus) {
-                            com.telemetrypro.app.data.LockStatus.LOCKED -> Secondary
-                            com.telemetrypro.app.data.LockStatus.SYNCING -> PrimaryFixedDim
-                            com.telemetrypro.app.data.LockStatus.SEARCHING -> OnSurfaceVariant
+                            LockStatus.LOCKED -> Secondary
+                            LockStatus.SYNCING -> PrimaryFixedDim
+                            LockStatus.SEARCHING -> OnSurfaceVariant
                         },
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.width(56.dp)

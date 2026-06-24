@@ -9,13 +9,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.telemetrypro.app.R
 import com.telemetrypro.app.ui.theme.*
 
-/**
- * NMEA log feed — scrolling monospace text.
- * Replicates the HTML NMEA stream component.
- */
 @Composable
 fun NmeaFeed(
     lines: List<String>,
@@ -31,9 +29,9 @@ fun NmeaFeed(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text("RAW NMEA STREAM", style = LabelCaps, color = OnSurfaceVariant)
+            Text(stringResource(R.string.nmea_raw_stream), style = LabelCaps, color = OnSurfaceVariant)
             Text(
-                if (lines.isNotEmpty()) "LOGGING..." else "IDLE",
+                if (lines.isNotEmpty()) stringResource(R.string.nmea_logging) else stringResource(R.string.nmea_idle),
                 style = CodeSm,
                 color = if (lines.isNotEmpty()) PrimaryFixedDim else OnSurfaceVariant
             )
@@ -54,7 +52,7 @@ fun NmeaFeed(
             ) {
                 if (lines.isEmpty()) {
                     Text(
-                        "Waiting for NMEA data...",
+                        stringResource(R.string.nmea_waiting),
                         style = CodeSm,
                         color = OnSurfaceVariant.copy(alpha = 0.3f)
                     )

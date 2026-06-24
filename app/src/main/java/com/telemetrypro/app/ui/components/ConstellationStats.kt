@@ -10,17 +10,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.telemetrypro.app.R
 import com.telemetrypro.app.data.ConstellationStats
 import com.telemetrypro.app.ui.theme.*
 
-/**
- * Constellation statistics card — one row per constellation system.
- * Shows colored indicator, name, visible/used counts, and average SNR.
- */
 @Composable
 fun ConstellationStatsCard(
     stats: List<ConstellationStats>,
@@ -33,14 +30,14 @@ fun ConstellationStatsCard(
             .padding(12.dp)
     ) {
         Text(
-            "CONSTELLATIONS",
+            stringResource(R.string.constellations_title),
             style = LabelCaps,
             color = OnSurfaceVariant,
             modifier = Modifier.padding(bottom = 8.dp)
         )
 
         if (stats.isEmpty()) {
-            Text("No data", style = CodeSm, color = OnSurfaceVariant.copy(alpha = 0.4f))
+            Text(stringResource(R.string.no_data), style = CodeSm, color = OnSurfaceVariant.copy(alpha = 0.4f))
         } else {
             stats.forEach { stat ->
                 Row(
@@ -49,14 +46,12 @@ fun ConstellationStatsCard(
                         .padding(vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Color indicator dot
                     Canvas(modifier = Modifier.size(10.dp)) {
                         drawCircle(color = stat.constellation.color)
                     }
 
                     Spacer(Modifier.width(8.dp))
 
-                    // Constellation name
                     Text(
                         text = stat.constellation.label,
                         style = TelemetryMd,
@@ -65,7 +60,6 @@ fun ConstellationStatsCard(
                         modifier = Modifier.width(80.dp)
                     )
 
-                    // Visible / Used count
                     val countColor = if (stat.usedInFix > 0) Secondary else OnSurfaceVariant
                     Text(
                         text = "${stat.usedInFix}/${stat.totalVisible}",
@@ -74,7 +68,6 @@ fun ConstellationStatsCard(
                         modifier = Modifier.width(48.dp)
                     )
 
-                    // SNR bar
                     val snrRatio = (stat.avgSnr / 50f).coerceIn(0f, 1f)
                     Canvas(
                         modifier = Modifier
