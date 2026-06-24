@@ -347,6 +347,163 @@ cd TelemetryPro
 8. **点阵地图手势演进** — 地图手势经历了四轮迭代：v1.4.2 将地图从 ScrollView 中移出（解决事件被父组件拦截）；v1.6.1 尝试手动 `awaitPointerEventScope` 底层事件处理（因 `awaitEachGesture` 无 Compose 1.5.x 支持而放弃）；v1.6.2 实现 anchored zoom 但缺 `mapLeft` 补偿（放大时向左上角漂移）；v1.6.4 回归 `detectTransformGestures` 并补全 letterbox 偏移补偿，最终根治所有交互问题。
 9. **负数取模陷阱** — Kotlin 的 `%` 运算符对负数返回负值（与 Python/数学定义不同），导致 v1.6.3 地图网格整整偏移 48 列。移除取模操作、直接使用原始偏移值是最简解决方案。
 
+### 维护指南（给后续 AI / 开发者）
+
+> 本章节是项目的「护身符」。TelemetryPro 经过 v1.4–v1.7 共 13 个版本的迭代，踩过许多 Compose / Android GNSS / 坐标投影的坑。下列内容记录了**哪些代码不能随意改动**、**常见问题的根因**、以及**维护时必须遵守的规则**。任何 AI 或人类在修改本项目前，请先通读本节。
+
+#### 一、架构总览与分层职责
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  UI 层 (ui/screens, ui/components, ui/map)                    │
+│  - 纯 Compose，无 Android Framework 调用（除 Activity 引用）  │
+│  - 通过 StateFlow 收集状态，事件回调上抛 ViewModel            │
+│  - 严禁在 Composable 中直接调用 LocationManager              │
+├─────────────────────────────────────────────────────────────┤
+│  ViewModel 层 (viewmodel/GpsViewModel.kt)                    │
+│  - 唯一的状态聚合点：combine(gpsState, recording, ...)        │
+│  - SharingStarted.WhileSubscribed(5000) — 离开页面 5s 后停 GPS │
+│  - 持有 SharedPreferences（在线模式开关持久化）                │
+│  - 网络监控：registerDefaultNetworkCallback + checkNetworkImmediate │
+├─────────────────────────────────────────────────────────────┤
+│  Repository 层 (data/GpsRepository.kt)                       │
+│  - 封装 LocationManager，三路监听并行：                       │
+│    LocationListener(1s) + GnssStatus.Callback + NMEAListener │
+│  - 卫星去重：按 (constellationType, svid) 去重，后覆盖前      │
+│  - NaN 清洗：getCn0DbHz() 可能返回 NaN，必须过滤              │
+│  - 无 Google Play Services 依赖（纯 AOSP API）                │
+├─────────────────────────────────────────────────────────────┤
+│  数据层 (data/*.kt)                                          │
+│  - LocationState: 单一 UI 状态数据类，所有页面共用            │
+│  - Constellation: 8 星座枚举，映射 Android GnssStatus 常量    │
+│  - SatelliteInfo: 单卫星模型，lockStatus 为派生属性           │
+│  - TrackRepository/TrackSession: 轨迹录制（Room 预留）        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**关键设计原则**：
+- **单一 ViewModel**：四个页面共用 `GpsViewModel`，生命周期绑定 `MainActivity`。切换 Tab 不重启 GNSS。
+- **单一状态流**：`LocationState` 是唯一 UI 状态来源。新增字段直接加到 data class，UI 通过 `state.xxx` 读取。
+- **零网络依赖**：除在线模式（AGPS 辅助）外，所有功能离线可用。地图完全自渲染，无瓦片下载。
+
+#### 二、红线代码清单（严禁随意修改）
+
+以下代码经过多轮调试才稳定工作，**修改前必须充分理解其历史背景**：
+
+| 文件 / 位置 | 代码 | 为什么不能动 |
+|:---|:---|:---|
+| `DotMatrixMap.kt` 锚定缩放公式 | `offsetX = centroid.x - newLeft - actualZoom * (centroid.x - oldLeft - offsetX)` | 缺少 `newLeft`/`oldLeft` 补偿会导致缩放时地图向左上角漂移（v1.6.2 bug）。`mapLeft` 随 scale 变化，必须用 old/new 两套值计算。 |
+| `DotMatrixMap.kt` `gridStartX` | `val gridStartX = mapLeft + offsetX`（**无取模**） | v1.6.3 曾用 `% cellW` 导致负数取模 bug，地图偏移 48 列。Kotlin `%` 对负数返回负值，与 Python 不同。**永远不要加回取模**。 |
+| `DotMatrixMap.kt` `latLngToCanvas` | `gridStartX + gx * cellW`（**无 +cellW/2**） | v1.7.1 移除了多余的半格偏移。`gx` 已是连续坐标，加半格会导致城市标签与陆地点阵错位，全屏模式尤其明显。 |
+| `DotMatrixMap.kt` `centeredOnFix` 标志 | 首次 fix 时居中一次，之后用户控制 | 若每次 fix 都重置 offset，用户拖动后会被瞬间拉回。`centeredOnFix` 确保"居中仅一次"语义。 |
+| `DotMatrixMap.kt` 固定宽高比 | `worldAspect = 126f / 60f` + letterbox | 横屏全屏时若按 Canvas 实际宽高拉伸，地图会变形。固定 2.1:1 + letterbox 是唯一正确方案。 |
+| `GpsRepository.kt` 卫星去重 | `satMap[constellationType to svid] = info` | 部分设备同一卫星会以 UNKNOWN + 真实星座双重上报，不去重会导致 LazyColumn key 冲突崩溃（v1.6.4 闪退根因）。 |
+| `SkyviewScreen.kt` LazyColumn key | `key = { "${it.constellation.constellationType}_${it.svid}" }` | 必须用 `constellationType`（Int）而非 `label`（String），因为 UNKNOWN 星座下 svid 跨系统重叠。**不能用 label + svid**。 |
+| `GpsViewModel.kt` 网络监控 | `registerDefaultNetworkCallback` + `checkNetworkImmediate()` | v1.6.2 曾用 `registerNetworkCallback(NetworkRequest)`，部分设备回调不触发。`registerDefaultNetworkCallback` 更可靠，配合主动查询避免竞态。 |
+| `GpsRepository.kt` NaN 清洗 | `status.getCn0DbHz(i).let { if (it.isNaN() \|\| it < 0) 0f else it }` | `getCn0DbHz` 在卫星无信号时返回 NaN，`coerceIn` 对 NaN 无效，会导致 SNR 柱状图和 avgSnr 计算异常。 |
+| `WorldMapGrid.kt` RLE 位图 | `bitmap: ByteArray` + `isLand(x, y)` | 这是离线预生成的 126×60 陆地位图，**不要手动编辑字节**。如需更新海岸线，用脚本重新生成。 |
+| `FullscreenMapScreen.kt` 横屏 | `requestedOrientation = SCREEN_ORIENTATION_SENSOR_LANDSCAPE` | 全屏地图必须横屏，否则点阵布局错乱。`DisposableEffect` 退出时恢复 `UNSPECIFIED`。 |
+
+#### 三、常见问题与排查思路
+
+**1. 地图无法拖动 / 缩放漂移**
+- 检查 `DotMatrixMap` 是否被嵌套在 `ScrollView`/`Column` 内且未加 `.clipToBounds()` — 父组件会拦截触摸事件
+- 检查 `detectTransformGestures` 是否被替换为手动 `awaitPointerEventScope` — Compose 1.5.x 中后者极易出错，**坚持用原生 API**
+- 检查 anchored zoom 公式是否包含 `oldLeft`/`newLeft` — 缺失会导致缩放向左上角漂移
+
+**2. 进入 Skyview 页面闪退**
+- 根因 99% 是 LazyColumn key 不唯一。检查 `GpsRepository.updateSatelliteData()` 是否做了 `(constellationType, svid)` 去重
+- 检查 `SkyviewScreen` 的 `items(key = ...)` 是否用了 `constellationType`（Int）而非 `label`（String）
+- 检查 SNR 是否有 NaN — `coerceIn` 对 NaN 无效，需先 `isNaN()` 判断
+
+**3. 在线模式切换后显示"等待网络"**
+- `registerDefaultNetworkCallback` 必须配合 `checkNetworkImmediate()` 主动查询
+- `setOnlineMode()` 中必须调用 `repository.restart()` 重启 GPS 监听
+- 切换时立即调用 `checkNetworkImmediate()` 刷新状态，不等回调
+
+**4. 地图变形 / 城市标签错位**
+- 检查 `gridStartX` 是否被加了 `% cellW` — 移除它
+- 检查 `latLngToCanvas` 是否被加了 `+ cellW/2` — 移除它
+- 检查 `mapW`/`mapH` 计算是否遵循固定 126:60 宽高比 — 不能用 Canvas 实际宽高直接拉伸
+
+**5. 构建失败：找不到 Java / SDK**
+- `JAVA_HOME` 必须指向 JDK 17（项目路径：`C:/Users/Fox/.workbuddy/android-tools/jdk-17.0.19+10`）
+- `local.properties` 中 `sdk.dir` 必须指向 Android SDK 根目录
+- Gradle 8.2 + Kotlin 1.9.21 + Compose BOM 2023.10.01 是验证过的组合，**不要随意升级**
+
+**6. GitHub Release 中文乱码**
+- PowerShell heredoc 中的 curl `--data-binary` 会破坏 UTF-8 编码
+- 解决：将 JSON 写入独立 `.json` 文件，用 `curl -d @file.json` 读取
+
+#### 四、维护流程规则
+
+1. **改前先读**：修改任何文件前，先读全文理解上下文，不要凭函数名猜测
+2. **小步提交**：每次只改一个功能点，立即构建验证，再继续下一个
+3. **保留注释**：代码中的 `// 关键` / `// 不要修改` 注释是历史教训，保留它们
+4. **版本号递增**：每次发布 `versionCode + 1`，`versionName` 按语义化版本
+5. **APK 命名**：`TelemetryPro_v{versionName}.apk`，通过 `build.gradle.kts` 的 `outputFileName` 配置
+6. **构建命令**：
+   ```bash
+   export JAVA_HOME="C:/Users/Fox/.workbuddy/android-tools/jdk-17.0.19+10"
+   cd D:/workbuddy/gps/TelemetryPro
+   ./gradlew assembleDebug
+   ```
+7. **发布流程**：commit → push main → 创建 tag → GitHub API 创建 Release → 上传 APK
+8. **测试要点**：室内（无 fix）+ 室外（有 fix）+ 全屏地图 + Skyview 有卫星时进入
+
+#### 五、给 AI 维护者的特别指引
+
+> 如果你是接手本项目的 AI 助手，请特别注意：
+
+1. **不要"优化"地图手势代码**。`detectTransformGestures` + anchored zoom 公式是四轮迭代后的最终方案。任何"简化"都会引入 bug。
+2. **不要给 `latLngToCanvas` 加半格偏移**。`gx` 是连续浮点坐标，不需要 `+ cellW/2`。加了会导致城市标签与陆地点阵错位。
+3. **不要给 `gridStartX` 加取模**。Kotlin `%` 对负数返回负值，会破坏网格定位。
+4. **不要把 LazyColumn key 改成 `label + svid`**。UNKNOWN 星座下 svid 跨系统重叠，必须用 `constellationType`（Int）。
+5. **不要用 `registerNetworkCallback(NetworkRequest)`**。部分设备回调不触发，必须用 `registerDefaultNetworkCallback`。
+6. **不要移除 NaN 检查**。`getCn0DbHz()` 和 `coerceIn()` 对 NaN 的行为不符合直觉。
+7. **不要把地图放进 ScrollView**。父组件会拦截单指拖动事件。
+8. **不要升级 Gradle / Kotlin / Compose 版本**除非充分测试。当前组合是验证过的稳定版本。
+9. **修改前先读 `D:/workbuddy/gps/.workbuddy/memory/` 下的日志**，了解历史决策和踩坑记录。
+10. **构建后必须实际安装测试**，不要假设编译通过就等于功能正确。地图手势、Skyview 闪退、网络状态这些问题只在运行时暴露。
+
+#### 六、数据流详解
+
+```
+Android GNSS HAL
+      │
+      ▼
+LocationManager
+      │
+      ├── LocationListener (1s 间隔)
+      │     └── onLocationChanged → updateLocationData()
+      │           └── 更新 latitude/longitude/speed/altitude → _locationState
+      │
+      ├── GnssStatus.Callback
+      │     └── onSatelliteStatusChanged → updateSatelliteData()
+      │           └── 去重 + NaN 清洗 + 分组统计 → _locationState.satellites
+      │
+      └── NMEAListener
+            └── onNmeaMessage → _nmeaBuffer (仅当 nmeaLoggingEnabled)
+                  └── 滚动缓冲区 (max 30 行) → _locationState.nmeaLogLines
+
+GpsViewModel
+      │
+      ├── combine(locationState, isRecording, distanceKm, trackPoints)
+      │     └── → state: StateFlow<LocationState>  (UI 唯一数据源)
+      │
+      ├── observeGpsForTracking()
+      │     └── locationState.collect → trackRepository.appendPoint() (录制中)
+      │
+      └── monitorNetwork()
+            └── registerDefaultNetworkCallback + checkNetworkImmediate
+                  └── → isNetworkAvailable: StateFlow<Boolean>
+
+UI Screens
+      └── collectAsState() → Compose 重组 → Canvas 渲染
+```
+
+**状态更新频率**：LocationListener 每 1 秒触发，GnssStatus 每次卫星状态变化触发（通常 1–4 秒）。UI 重组由 StateFlow 驱动，无需手动 invalidate。
+
 ### 权限
 
 ```xml
@@ -685,6 +842,164 @@ cd TelemetryPro
 7. **Build on Bare JDK** — No Android Studio required. Key: `local.properties` → SDK root, `ANDROID_HOME` env, `gradle.properties` → `android.useAndroidX=true`.
 8. **Dot-Matrix Map Gesture Evolution** — The map gesture system evolved through 4 iterations: v1.4.2 removed the map from a ScrollView (to stop the parent intercepting touch events); v1.6.1 attempted manual `awaitPointerEventScope` low-level handling (abandoned — `awaitEachGesture` unavailable in Compose 1.5.x); v1.6.2 implemented anchored zoom but missed `mapLeft` compensation (causing top-left drift); v1.6.4 returned to `detectTransformGestures` and added full letterbox offset compensation, resolving all interaction bugs.
 9. **Negative Modulo Gotcha** — Kotlin's `%` operator returns negative values for negative operands (unlike Python/math). This caused the map grid to shift by exactly 48 columns in v1.6.3. Removing the modulo entirely and using raw offset values was the simplest fix.
+
+### Maintenance Guide (for AI / Developers)
+
+> This section is the project's "guardian". TelemetryPro has been iterated through 13 versions (v1.4–v1.7), navigating many pitfalls in Compose, Android GNSS, and coordinate projection. The following records **which code must not be touched**, **root causes of common issues**, and **rules to follow during maintenance**. Any AI or human modifying this project must read this section first.
+
+#### 1. Architecture Overview & Layer Responsibilities
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  UI Layer (ui/screens, ui/components, ui/map)                │
+│  - Pure Compose, no Android Framework calls (except Activity)│
+│  - Collects state via StateFlow, events bubble up to ViewModel│
+│  - NEVER call LocationManager directly in a Composable       │
+├─────────────────────────────────────────────────────────────┤
+│  ViewModel Layer (viewmodel/GpsViewModel.kt)                │
+│  - Single state aggregation point: combine(gps, track, ...)  │
+│  - SharingStarted.WhileSubscribed(5000) — GPS stops 5s after │
+│    last observer leaves                                      │
+│  - Holds SharedPreferences (online mode persistence)         │
+│  - Network: registerDefaultNetworkCallback + checkImmediate   │
+├─────────────────────────────────────────────────────────────┤
+│  Repository Layer (data/GpsRepository.kt)                   │
+│  - Wraps LocationManager, three parallel listeners:          │
+│    LocationListener(1s) + GnssStatus.Callback + NMEAListener │
+│  - Satellite dedup: by (constellationType, svid), last wins  │
+│  - NaN sanitization: getCn0DbHz() may return NaN, must filter│
+│  - No Google Play Services dependency (pure AOSP API)        │
+├─────────────────────────────────────────────────────────────┤
+│  Data Layer (data/*.kt)                                     │
+│  - LocationState: single UI state class, shared by all screens│
+│  - Constellation: 8-system enum, maps Android GnssStatus     │
+│  - SatelliteInfo: per-sat model, lockStatus is derived       │
+│  - TrackRepository/TrackSession: track recording (Room TBD)  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Key Design Principles**:
+- **Single ViewModel**: All four screens share `GpsViewModel`, lifecycle bound to `MainActivity`. Tab switches don't restart GNSS.
+- **Single State Flow**: `LocationState` is the only UI state source. Add fields directly to the data class; UI reads via `state.xxx`.
+- **Zero Network Dependency**: Except online mode (AGPS assist), all features work offline. Map is fully self-rendered, no tile downloads.
+
+#### 2. Red-Line Code (Do NOT Modify Without Full Context)
+
+The following code took multiple debug iterations to stabilize. **Understand the history before touching**:
+
+| File / Location | Code | Why It Must Not Change |
+|:---|:---|:---|
+| `DotMatrixMap.kt` anchored zoom | `offsetX = centroid.x - newLeft - actualZoom * (centroid.x - oldLeft - offsetX)` | Missing `newLeft`/`oldLeft` compensation causes top-left drift during zoom (v1.6.2 bug). `mapLeft` changes with scale; must use old/new pairs. |
+| `DotMatrixMap.kt` `gridStartX` | `val gridStartX = mapLeft + offsetX` (**no modulo**) | v1.6.3 used `% cellW` causing negative-modulo bug, shifting grid 48 columns. Kotlin `%` returns negative for negative operands, unlike Python. **Never add modulo back**. |
+| `DotMatrixMap.kt` `latLngToCanvas` | `gridStartX + gx * cellW` (**no +cellW/2**) | v1.7.1 removed the extra half-cell offset. `gx` is a continuous coordinate; adding half a cell misaligns city labels with land dots, especially in fullscreen. |
+| `DotMatrixMap.kt` `centeredOnFix` | Centers once on first fix, then user-controlled | If offset resets on every fix, user pans get instantly overridden. `centeredOnFix` ensures "center exactly once" semantics. |
+| `DotMatrixMap.kt` fixed aspect | `worldAspect = 126f / 60f` + letterbox | If stretched to actual canvas dimensions in landscape fullscreen, the map distorts. Fixed 2.1:1 + letterbox is the only correct approach. |
+| `GpsRepository.kt` satellite dedup | `satMap[constellationType to svid] = info` | Some devices report the same satellite as UNKNOWN + real constellation. Without dedup, LazyColumn key collision crashes (v1.6.4 crash root cause). |
+| `SkyviewScreen.kt` LazyColumn key | `key = { "${it.constellation.constellationType}_${it.svid}" }` | Must use `constellationType` (Int), not `label` (String). UNKNOWN constellation has cross-system svid overlaps. **Never use label + svid**. |
+| `GpsViewModel.kt` network monitor | `registerDefaultNetworkCallback` + `checkNetworkImmediate()` | v1.6.2 used `registerNetworkCallback(NetworkRequest)` — callbacks didn't fire on some devices. `registerDefaultNetworkCallback` is more reliable; pair with active query to avoid races. |
+| `GpsRepository.kt` NaN sanitization | `status.getCn0DbHz(i).let { if (it.isNaN() \|\| it < 0) 0f else it }` | `getCn0DbHz` returns NaN when a satellite has no signal. `coerceIn` is a no-op on NaN, causing SNR bar and avgSnr calculation errors. |
+| `WorldMapGrid.kt` RLE bitmap | `bitmap: ByteArray` + `isLand(x, y)` | This is a pre-generated 126×60 land bitmap. **Do not hand-edit bytes**. Regenerate via script if coastlines need updating. |
+| `FullscreenMapScreen.kt` landscape | `requestedOrientation = SCREEN_ORIENTATION_SENSOR_LANDSCAPE` | Fullscreen map must be landscape, otherwise dot layout scrambles. `DisposableEffect` restores `UNSPECIFIED` on exit. |
+
+#### 3. Common Issues & Troubleshooting
+
+**1. Map won't drag / zoom drifts**
+- Check if `DotMatrixMap` is nested in `ScrollView`/`Column` without `.clipToBounds()` — parent intercepts touch events
+- Check if `detectTransformGestures` was replaced with manual `awaitPointerEventScope` — the latter is extremely error-prone in Compose 1.5.x, **always use the native API**
+- Check if anchored zoom formula includes `oldLeft`/`newLeft` — omission causes top-left drift
+
+**2. Skyview crashes on entry**
+- 99% of the time, LazyColumn keys are not unique. Check `GpsRepository.updateSatelliteData()` for `(constellationType, svid)` dedup
+- Check `SkyviewScreen` `items(key = ...)` uses `constellationType` (Int), not `label` (String)
+- Check for NaN SNR — `coerceIn` is a no-op on NaN; must check `isNaN()` first
+
+**3. Online mode shows "waiting for network" after toggle**
+- `registerDefaultNetworkCallback` must be paired with `checkNetworkImmediate()` active query
+- `setOnlineMode()` must call `repository.restart()` to restart GPS monitoring
+- Call `checkNetworkImmediate()` immediately on toggle — don't wait for callback
+
+**4. Map distortion / city label misalignment**
+- Check if `gridStartX` has `% cellW` added — remove it
+- Check if `latLngToCanvas` has `+ cellW/2` added — remove it
+- Check `mapW`/`mapH` follows fixed 126:60 aspect ratio — don't stretch to actual canvas dims
+
+**5. Build failure: Java / SDK not found**
+- `JAVA_HOME` must point to JDK 17 (path: `C:/Users/Fox/.workbuddy/android-tools/jdk-17.0.19+10`)
+- `local.properties` must have `sdk.dir` pointing to Android SDK root
+- Gradle 8.2 + Kotlin 1.9.21 + Compose BOM 2023.10.01 is the verified combo — **do not upgrade casually**
+
+**6. GitHub Release Chinese text garbled**
+- PowerShell heredoc with curl `--data-binary` corrupts UTF-8 encoding
+- Fix: write JSON to a standalone `.json` file, use `curl -d @file.json`
+
+#### 4. Maintenance Workflow Rules
+
+1. **Read before edit**: Read the full file before modifying anything; don't guess from function names
+2. **Small steps**: Change one feature at a time, build & verify, then proceed
+3. **Preserve comments**: `// 关键` / `// do not modify` comments encode historical lessons — keep them
+4. **Version bump**: Increment `versionCode` by 1, `versionName` per semver
+5. **APK naming**: `TelemetryPro_v{versionName}.apk`, configured via `outputFileName` in `build.gradle.kts`
+6. **Build command**:
+   ```bash
+   export JAVA_HOME="C:/Users/Fox/.workbuddy/android-tools/jdk-17.0.19+10"
+   cd D:/workbuddy/gps/TelemetryPro
+   ./gradlew assembleDebug
+   ```
+7. **Release flow**: commit → push main → create tag → GitHub API create Release → upload APK
+8. **Testing checklist**: indoor (no fix) + outdoor (with fix) + fullscreen map + enter Skyview with satellites
+
+#### 5. Special Guidance for AI Maintainers
+
+> If you are an AI assistant taking over this project, pay special attention:
+
+1. **Do NOT "optimize" the map gesture code**. `detectTransformGestures` + anchored zoom is the final solution after four iterations. Any "simplification" will introduce bugs.
+2. **Do NOT add half-cell offset to `latLngToCanvas`**. `gx` is a continuous float coordinate; `+ cellW/2` is wrong. It misaligns city labels with land dots.
+3. **Do NOT add modulo to `gridStartX`**. Kotlin `%` returns negative for negative operands, breaking grid positioning.
+4. **Do NOT change LazyColumn key to `label + svid`**. UNKNOWN constellation has cross-system svid overlaps; must use `constellationType` (Int).
+5. **Do NOT use `registerNetworkCallback(NetworkRequest)`**. Callbacks don't fire on some devices; must use `registerDefaultNetworkCallback`.
+6. **Do NOT remove NaN checks**. `getCn0DbHz()` and `coerceIn()` behave unintuitively with NaN.
+7. **Do NOT put the map inside a ScrollView**. Parent components intercept single-finger drag events.
+8. **Do NOT upgrade Gradle / Kotlin / Compose versions** without thorough testing. The current combo is verified stable.
+9. **Read `D:/workbuddy/gps/.workbuddy/memory/` logs before modifying** to understand historical decisions and pitfalls.
+10. **Always install and test after building** — compilation success ≠ functional correctness. Map gestures, Skyview crashes, and network status issues only manifest at runtime.
+
+#### 6. Data Flow Detail
+
+```
+Android GNSS HAL
+      │
+      ▼
+LocationManager
+      │
+      ├── LocationListener (1s interval)
+      │     └── onLocationChanged → updateLocationData()
+      │           └── Update lat/lng/speed/altitude → _locationState
+      │
+      ├── GnssStatus.Callback
+      │     └── onSatelliteStatusChanged → updateSatelliteData()
+      │           └── Dedup + NaN sanitize + group stats → _locationState.satellites
+      │
+      └── NMEAListener
+            └── onNmeaMessage → _nmeaBuffer (only if nmeaLoggingEnabled)
+                  └── Rolling buffer (max 30 lines) → _locationState.nmeaLogLines
+
+GpsViewModel
+      │
+      ├── combine(locationState, isRecording, distanceKm, trackPoints)
+      │     └── → state: StateFlow<LocationState>  (single UI data source)
+      │
+      ├── observeGpsForTracking()
+      │     └── locationState.collect → trackRepository.appendPoint() (when recording)
+      │
+      └── monitorNetwork()
+            └── registerDefaultNetworkCallback + checkNetworkImmediate
+                  └── → isNetworkAvailable: StateFlow<Boolean>
+
+UI Screens
+      └── collectAsState() → Compose recomposition → Canvas rendering
+```
+
+**Update frequency**: LocationListener fires every 1 second; GnssStatus fires on each satellite status change (typically 1–4s). UI recomposition is driven by StateFlow — no manual invalidation needed.
 
 ### Permissions
 
