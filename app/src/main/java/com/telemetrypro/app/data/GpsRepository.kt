@@ -3,7 +3,6 @@ package com.telemetrypro.app.data
 import android.annotation.SuppressLint
 import android.content.Context
 import android.location.GnssStatus
-import android.location.GpsStatus
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
@@ -24,11 +23,15 @@ import kotlinx.coroutines.flow.asStateFlow
  *   - GNSS satellite status per constellation
  *   - NMEA sentence logging
  *   - Flight mode detection helpers
+ *   - Online/offline mode (AGPS toggle)
  */
 class GpsRepository(private val context: Context) {
 
     private val locationManager: LocationManager =
         context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+
+    /** Whether network-assisted (AGPS) mode is enabled */
+    var onlineMode: Boolean = false
 
     // --- StateFlows exposed to ViewModel ---
     private val _locationState = MutableStateFlow(LocationState())
@@ -111,7 +114,7 @@ class GpsRepository(private val context: Context) {
     fun start() {
         val lm = locationManager
         try {
-            // Request location updates every 1 second
+            // GPS provider — always active
             if (LocationManagerCompat.hasProvider(lm, LocationManager.GPS_PROVIDER)) {
                 lm.requestLocationUpdates(
                     LocationManager.GPS_PROVIDER,
@@ -121,12 +124,29 @@ class GpsRepository(private val context: Context) {
                     Looper.getMainLooper()
                 )
             }
+
+            // NETWORK provider — only when online mode is enabled (AGPS assist)
+            if (onlineMode && LocationManagerCompat.hasProvider(lm, LocationManager.NETWORK_PROVIDER)) {
+                lm.requestLocationUpdates(
+                    LocationManager.NETWORK_PROVIDER,
+                    2000L,      // 2 second interval (coarse, just for TTFF speed-up)
+                    50f,        // 50 meter min distance
+                    locationListener,
+                    Looper.getMainLooper()
+                )
+            }
+
             // Register GNSS status
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                 lm.registerGnssStatusCallback(gnssCallback)
             }
             // Register NMEA listener
             lm.addNmeaListener(nmeaListener)
+
+            // Update online state in flow
+            _locationState.value = _locationState.value.copy(
+                isOnlineMode = onlineMode
+            )
         } catch (e: SecurityException) {
             _locationState.value = _locationState.value.copy(
                 fixStatus = GpsFixStatus.NO_SIGNAL
@@ -140,6 +160,15 @@ class GpsRepository(private val context: Context) {
             locationManager.unregisterGnssStatusCallback(gnssCallback)
         }
         locationManager.removeNmeaListener(nmeaListener)
+    }
+
+    /**
+     * Restart monitoring with the new online mode setting.
+     * Must be called after toggling onlineMode.
+     */
+    fun restart() {
+        stop()
+        start()
     }
 
     // ============================================================

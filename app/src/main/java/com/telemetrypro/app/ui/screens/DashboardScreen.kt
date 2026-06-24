@@ -22,6 +22,7 @@ import com.telemetrypro.app.ui.theme.*
 @Composable
 fun DashboardScreen(
     state: LocationState,
+    isOnlineMode: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -36,7 +37,8 @@ fun DashboardScreen(
                 GpsFixStatus.SEARCHING -> stringResource(R.string.fix_status_searching)
                 GpsFixStatus.NO_SIGNAL -> stringResource(R.string.fix_status_no_signal)
             },
-            isFixed = state.fixStatus == GpsFixStatus.FIXED
+            isFixed = state.fixStatus == GpsFixStatus.FIXED,
+            isOnline = isOnlineMode
         )
 
         Spacer(Modifier.height(8.dp))

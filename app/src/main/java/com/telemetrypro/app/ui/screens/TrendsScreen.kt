@@ -29,6 +29,7 @@ import kotlin.math.min as mathMin
 @Composable
 fun TrendsScreen(
     state: LocationState,
+    isOnlineMode: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -39,7 +40,8 @@ fun TrendsScreen(
     ) {
         TopAppBar(
             fixLabel = stringResource(R.string.fix_status_tracking),
-            isFixed = state.speedKmh > 0
+            isFixed = state.speedKmh > 0,
+            isOnline = isOnlineMode
         )
 
         Spacer(Modifier.height(8.dp))

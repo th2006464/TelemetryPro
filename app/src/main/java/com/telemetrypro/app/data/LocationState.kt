@@ -53,5 +53,8 @@ data class LocationState(
     val speedKmh: Float = 0f,
     val altitudeMeters: Double = 0.0,
     val latitudeDms: String = "",
-    val longitudeDms: String = ""
+    val longitudeDms: String = "",
+
+    // Network mode
+    val isOnlineMode: Boolean = false
 )

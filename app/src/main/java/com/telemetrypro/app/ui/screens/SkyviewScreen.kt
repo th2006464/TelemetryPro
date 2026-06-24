@@ -30,6 +30,7 @@ import kotlin.math.*
 @Composable
 fun SkyviewScreen(
     state: LocationState,
+    isOnlineMode: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -41,7 +42,8 @@ fun SkyviewScreen(
         val svsLabel = stringResource(R.string.skyview_svs_label)
         TopAppBar(
             fixLabel = "${state.usedSatellites}/${state.totalSatellites} $svsLabel",
-            isFixed = state.usedSatellites > 0
+            isFixed = state.usedSatellites > 0,
+            isOnline = isOnlineMode
         )
 
         Spacer(Modifier.height(8.dp))

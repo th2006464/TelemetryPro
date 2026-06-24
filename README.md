@@ -16,10 +16,7 @@
 </div>
 
 <p align="center">
-  <img src="docs/dashboard.png" width="23%" alt="Dashboard" />
-  <img src="docs/skyview.png" width="23%" alt="Skyview" />
-  <img src="docs/trends.png" width="23%" alt="Trends" />
-  <img src="docs/settings.png" width="23%" alt="Settings" />
+  <img src="docs/screens.png" width="90%" alt="Telemetry Pro — Dashboard, Skyview, Trends, Settings" />
 </p>
 
 ---

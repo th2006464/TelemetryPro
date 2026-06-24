@@ -16,6 +16,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.telemetrypro.app.LocaleHelper
 import com.telemetrypro.app.R
@@ -24,6 +25,11 @@ import com.telemetrypro.app.ui.theme.*
 
 @Composable
 fun SettingsScreen(
+    isOnlineMode: Boolean = false,
+    isNetworkAvailable: Boolean = false,
+    gpsFixStatus: String = "3D FIX",
+    isFixed: Boolean = false,
+    onOnlineModeChanged: (Boolean) -> Unit = {},
     onLanguageChanged: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -37,8 +43,9 @@ fun SettingsScreen(
             .verticalScroll(rememberScrollState())
     ) {
         TopAppBar(
-            fixLabel = stringResource(R.string.dashboard_offline_mode),
-            isFixed = false
+            fixLabel = gpsFixStatus,
+            isFixed = isFixed,
+            isOnline = isOnlineMode
         )
 
         Spacer(Modifier.height(8.dp))
@@ -57,6 +64,122 @@ fun SettingsScreen(
         )
 
         Spacer(Modifier.height(8.dp))
+
+        // ---- Network Mode ----
+        SettingsTile(
+            title = stringResource(R.string.network_mode),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Online mode button
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .background(
+                            if (isOnlineMode) PrimaryContainer.copy(alpha = 0.2f) else SurfaceContainerHigh,
+                            RoundedCornerShape(8.dp)
+                        )
+                        .border(
+                            1.dp,
+                            if (isOnlineMode) PrimaryFixedDim else OutlineVariant,
+                            RoundedCornerShape(8.dp)
+                        )
+                        .clickable {
+                            if (!isOnlineMode) {
+                                onOnlineModeChanged(true)
+                                Toast.makeText(
+                                    context,
+                                    context.getString(R.string.network_mode_changed),
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
+                        .padding(12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            stringResource(R.string.network_mode_online),
+                            style = TelemetryMd,
+                            color = if (isOnlineMode) PrimaryFixedDim else OnSurfaceVariant
+                        )
+                        Text(
+                            stringResource(R.string.network_mode_online_desc),
+                            style = CodeSm,
+                            color = OnSurfaceVariant.copy(alpha = 0.6f),
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                }
+
+                // Offline mode button
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .background(
+                            if (!isOnlineMode) SurfaceContainerLowest else SurfaceContainerHigh,
+                            RoundedCornerShape(8.dp)
+                        )
+                        .border(
+                            1.dp,
+                            if (!isOnlineMode) Secondary else OutlineVariant,
+                            RoundedCornerShape(8.dp)
+                        )
+                        .clickable {
+                            if (isOnlineMode) {
+                                onOnlineModeChanged(false)
+                                Toast.makeText(
+                                    context,
+                                    context.getString(R.string.network_mode_changed),
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
+                        .padding(12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            stringResource(R.string.network_mode_offline),
+                            style = TelemetryMd,
+                            color = if (!isOnlineMode) Secondary else OnSurfaceVariant
+                        )
+                        Text(
+                            stringResource(R.string.network_mode_offline_desc),
+                            style = CodeSm,
+                            color = OnSurfaceVariant.copy(alpha = 0.6f),
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                }
+            }
+
+            // Network status indicator
+            if (isOnlineMode) {
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    val statusColor = if (isNetworkAvailable) Secondary else WarningAmber
+                    val statusText = if (isNetworkAvailable)
+                        (if (isZh) "已连接网络" else "Network connected")
+                    else
+                        (if (isZh) "等待网络连接…" else "Waiting for network…")
+                    Text(
+                        text = if (isNetworkAvailable) "\uD83D\uDFE2" else "\u26A0\uFE0F",
+                        style = CodeSm
+                    )
+                    Text(
+                        statusText,
+                        style = CodeSm,
+                        color = statusColor
+                    )
+                }
+            }
+        }
 
         // ---- Language ----
         SettingsTile(

@@ -4,15 +4,16 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.telemetrypro.app.R
 import com.telemetrypro.app.ui.theme.CodeSm
@@ -21,13 +22,15 @@ import com.telemetrypro.app.ui.theme.OnSurfaceVariant
 import com.telemetrypro.app.ui.theme.OnSurface
 import com.telemetrypro.app.ui.theme.OutlineVariant
 import com.telemetrypro.app.ui.theme.SurfaceContainerLow
-import com.telemetrypro.app.ui.theme.SurfaceContainerLowest
 import com.telemetrypro.app.ui.theme.Secondary
+import com.telemetrypro.app.ui.theme.Primary
+import com.telemetrypro.app.ui.theme.Error
 
 @Composable
 fun TopAppBar(
     fixLabel: String = stringResource(R.string.fix_status_fixed),
     isFixed: Boolean = true,
+    isOnline: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -59,14 +62,38 @@ fun TopAppBar(
 
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            StatusPip(status = if (isFixed) PipStatus.ACTIVE else PipStatus.WARNING)
-            Text(
-                text = fixLabel,
-                style = LabelCaps,
-                color = if (isFixed) Secondary else OnSurfaceVariant
-            )
+            // Online/Offline status indicator
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                StatusPip(status = if (isOnline) PipStatus.ACTIVE else PipStatus.INACTIVE, size = 6)
+                Text(
+                    text = if (isOnline)
+                        stringResource(R.string.network_status_online)
+                    else
+                        stringResource(R.string.network_status_offline),
+                    style = CodeSm,
+                    color = if (isOnline) Primary else OnSurfaceVariant.copy(alpha = 0.5f)
+                )
+            }
+
+            Spacer(Modifier.width(4.dp))
+
+            // GPS Fix status
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                StatusPip(status = if (isFixed) PipStatus.ACTIVE else PipStatus.WARNING)
+                Text(
+                    text = fixLabel,
+                    style = LabelCaps,
+                    color = if (isFixed) Secondary else OnSurfaceVariant
+                )
+            }
         }
     }
 }

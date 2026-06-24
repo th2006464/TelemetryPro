@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -56,6 +55,8 @@ class MainActivity : ComponentActivity() {
 private fun MainApp() {
     val viewModel: GpsViewModel = viewModel()
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val isOnlineMode by viewModel.isOnlineMode.collectAsStateWithLifecycle()
+    val isNetworkAvailable by viewModel.isNetworkAvailable.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -113,10 +114,28 @@ private fun MainApp() {
         // Screen content
         Box(modifier = Modifier.weight(1f)) {
             when (selectedTab) {
-                0 -> DashboardScreen(state = state)
-                1 -> SkyviewScreen(state = state)
-                2 -> TrendsScreen(state = state)
+                0 -> DashboardScreen(
+                    state = state,
+                    isOnlineMode = isOnlineMode
+                )
+                1 -> SkyviewScreen(
+                    state = state,
+                    isOnlineMode = isOnlineMode
+                )
+                2 -> TrendsScreen(
+                    state = state,
+                    isOnlineMode = isOnlineMode
+                )
                 3 -> SettingsScreen(
+                    isOnlineMode = isOnlineMode,
+                    isNetworkAvailable = isNetworkAvailable,
+                    gpsFixStatus = when (state.fixStatus) {
+                        com.telemetrypro.app.data.GpsFixStatus.FIXED -> "3D FIX"
+                        com.telemetrypro.app.data.GpsFixStatus.SEARCHING -> context.getString(R.string.fix_status_searching)
+                        com.telemetrypro.app.data.GpsFixStatus.NO_SIGNAL -> context.getString(R.string.fix_status_no_signal)
+                    },
+                    isFixed = state.fixStatus == com.telemetrypro.app.data.GpsFixStatus.FIXED,
+                    onOnlineModeChanged = { enabled -> viewModel.setOnlineMode(enabled) },
                     onLanguageChanged = {
                         // Restart activity to apply new locale
                         val intent = Intent(context, MainActivity::class.java)
