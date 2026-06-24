@@ -1,13 +1,17 @@
-# Telemetry Pro
+<div align="center">
+
+# 🛰️ Telemetry Pro
+
+**离线 GPS 遥测监控 · Aviation Glass-Cockpit Instrument Cluster**
 
 [![Kotlin](https://img.shields.io/badge/Kotlin-1.9.21-7F52FF?logo=kotlin)](https://kotlinlang.org)
 [![Compose](https://img.shields.io/badge/Jetpack%20Compose-BOM%202023.10-4285F4?logo=jetpackcompose)](https://developer.android.com/compose)
 [![Min SDK](https://img.shields.io/badge/Min%20SDK-26-4CAF50?logo=android)](https://developer.android.com)
 [![License](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
 
-**Offline GPS telemetry monitor for aviation and outdoor environments.**
+[English](#english) · [中文](#中文)
 
-A pure-local, network-free Android app that turns your device into a glass-cockpit instrument cluster. Real-time GNSS data, multi-constellation satellite tracking, flight mode detection — all rendered in an aviation-grade dark theme.
+</div>
 
 <p align="center">
   <img src="docs/dashboard.png" width="23%" alt="Dashboard" />
@@ -18,9 +22,15 @@ A pure-local, network-free Android app that turns your device into a glass-cockp
 
 ---
 
-## Features
+<a name="english"></a>
 
-### Dashboard
+## English
+
+Pure-local, network-free Android app that turns your device into a glass-cockpit instrument cluster. Real-time GNSS data, multi-constellation satellite tracking, and flight mode detection — all rendered in an aviation-grade dark theme.
+
+### Features
+
+#### Dashboard
 - **GNSS coordinates** — latitude/longitude in DD and DMS formats, refreshed every second
 - **Offline map** — osmdroid tile cache shows current position as a glowing dot; no city labels, no network needed
 - **Constellation summary** — per-constellation satellite count, used-in-fix count, best SNR
@@ -28,31 +38,32 @@ A pure-local, network-free Android app that turns your device into a glass-cockp
 - **SNR bar graph** — colour-coded by constellation, sorted by signal strength
 - **NMEA log stream** — live scrolling raw sentences from the GPS receiver
 
-### Skyview
+#### Skyview
 - **Radar scanner** — animated sweep with constellation-coloured satellite dots plotted by elevation/azimuth
 - **Constellation legend** — toggle individual systems on/off
 - **Satellite table** — SVID, constellation, EL/AZ, SNR (dB-Hz), lock status with colour coding
 - **Health summary** — total visible, used in fix, best SNR across all systems
 
-### Trends
+#### Trends
 - **Speed gauge** — circular arc progress indicator with real-time km/h readout
 - **Altitude trend** — line chart of recent elevation history
 - **Vertical speed indicator (VSI)** — climb/descent rate in m/s
 - **Terrain background** — subtle elevation gradient behind charts
 
-### Settings
+#### Settings
 - **Units** — toggle between metric (km/h, m) and imperial (mph, ft)
 - **Coordinate format** — DD (decimal degrees), DMS (degrees-minutes-seconds), UTM
 - **Altitude reference** — WGS84 ellipsoid or MSL correction
 - **Offline data** — export NMEA logs, clear cached map tiles
-- **Privacy notice** — all data stays on device, zero network transmission
+- **Privacy** — all data stays on device, zero network transmission
 
-### Flight Mode Detection
+#### Flight Mode Detection
 Automatically detects high-speed/high-altitude environments:
-- **Speed > 200 km/h** → "FLIGHT?" indicator
-- **Altitude > 8,000 m** → "HIGH ALT" indicator
+- **Speed > 200 km/h** → `FLIGHT?` indicator
+- **Altitude > 8,000 m** → `HIGH ALT` indicator
 
 ### 8-Constellation Differentiation
+
 Each GNSS system is identified and colour-coded in every view:
 
 | Constellation | Colour | Hex |
@@ -66,11 +77,9 @@ Each GNSS system is identified and colour-coded in every view:
 | **SBAS** | Neutral Grey | `#9E9E9E` |
 | **Unknown** | Dark Grey | `#616161` |
 
-Identified via Android `GnssStatus.getConstellationType()` (API 26+). Each constellation shows aggregated stats: total visible, used-in-fix count, average SNR, and best SNR.
+Identified via Android `GnssStatus.getConstellationType()` (API 26+).
 
----
-
-## Architecture
+### Architecture
 
 ```
 ┌─────────────────────────────────────────────────────┐
@@ -97,84 +106,39 @@ Identified via Android `GnssStatus.getConstellationType()` (API 26+). Each const
 └──────────────────────────────────────────────────────┘
 ```
 
-### Key Design Decisions
+**MVVM + StateFlow** — Single `GpsViewModel` shared across all screens. `LocationState` data class consumed by every view. `WhileSubscribed(5000)` keeps GPS alive for 5s after last observer disappears.
 
-**MVVM + StateFlow**
-Single `GpsViewModel` shared across all screens. `LocationState` is a single data class consumed by every view; no per-screen state fragmentation. Uses `WhileSubscribed(5000)` sharing strategy so the GPS keeps running for 5s after the last observer disappears — prevents rapid stop/start on tab switches.
+**No Google Play Services** — Uses only `android.location.LocationManager`. Works on AOSP/non-Google devices, zero network dependency.
 
-**No Google Play Services**
-Uses only `android.location.LocationManager` APIs. This means:
-- Works on AOSP / non-Google devices
-- No network dependency whatsoever
-- Full GNSS raw access via `GnssStatus.Callback` (API 24+)
+**1-Second Refresh** — Three parallel event-driven streams: `LocationListener`, `GnssStatus.Callback`, `NMEAListener`.
 
-**Constellation-Aware from the Ground Up**
-The `Constellation` enum maps 1:1 to Android's `GnssStatus.CONSTELLATION_*` constants. Every satellite carries its constellation identity through the data layer into the UI — SNR bars, skyview dots, and stats tables are all colour-coded by system. `ConstellationStats` groups refine per-system metrics including average SNR and best SNR.
-
-**1-Second Refresh Cycle**
-Three parallel data streams feed the UI at 1 Hz:
-1. `LocationListener` → position, speed, altitude
-2. `GnssStatus.Callback` → satellite constellation data
-3. `NMEAListener` → raw sentence buffer (last 30 lines)
-
-This gives the glass-cockpit feel without burning CPU — no polling, all event-driven.
-
----
-
-## Project Structure
+### Project Structure
 
 ```
 TelemetryPro/
 ├── app/
-│   ├── build.gradle.kts              # App-level dependencies
 │   └── src/main/
-│       ├── AndroidManifest.xml       # Permissions, activity declaration
+│       ├── AndroidManifest.xml
 │       ├── java/com/telemetrypro/app/
-│       │   ├── MainActivity.kt       # Entry point, nav host, permission logic
+│       │   ├── MainActivity.kt          # Entry point, nav host
 │       │   ├── data/
-│       │   │   ├── Constellation.kt  # GNSS system enum + colour mapping
-│       │   │   ├── GpsRepository.kt  # LocationManager wrapper, all GPS logic
-│       │   │   ├── LocationState.kt  # UI state data class
-│       │   │   └── SatelliteInfo.kt  # Per-satellite + aggregated stats models
+│       │   │   ├── Constellation.kt     # 8-system enum + colour map
+│       │   │   ├── GpsRepository.kt     # LocationManager wrapper
+│       │   │   ├── LocationState.kt     # UI state data class
+│       │   │   └── SatelliteInfo.kt     # Satellite + stats models
 │       │   ├── viewmodel/
-│       │   │   └── GpsViewModel.kt   # Shared ViewModel, lifecycle management
+│       │   │   └── GpsViewModel.kt      # Shared ViewModel
 │       │   └── ui/
-│       │       ├── theme/
-│       │       │   ├── Color.kt      # Astra Precision full palette
-│       │       │   ├── Type.kt       # JetBrains Mono + Inter typography
-│       │       │   ├── Shape.kt      # 12dp rounded corners
-│       │       │   └── Theme.kt      # Dark M3 theme with glow effects
-│       │       ├── components/
-│       │       │   ├── BottomNavBar.kt
-│       │       │   ├── ConstellationStats.kt
-│       │       │   ├── NmeaFeed.kt
-│       │       │   ├── ReadoutTile.kt
-│       │       │   ├── SnrBarGraph.kt
-│       │       │   ├── StatusPip.kt
-│       │       │   └── TopAppBar.kt
-│       │       └── screens/
-│       │           ├── DashboardScreen.kt
-│       │           ├── SettingsScreen.kt
-│       │           ├── SkyviewScreen.kt
-│       │           └── TrendsScreen.kt
+│       │       ├── theme/               # Astra Precision design tokens
+│       │       ├── components/          # 7 reusable widgets
+│       │       └── screens/             # 4 screens
 │       └── res/
-│           ├── drawable/             # Vector launcher icon
-│           ├── mipmap-anydpi-v26/    # Adaptive icon
-│           └── values/               # strings.xml, themes.xml
-├── build.gradle.kts                  # Root Gradle config
-├── settings.gradle.kts               # Project settings
-├── gradle.properties                 # Gradle JVM args
-└── gradle/wrapper/
-    └── gradle-wrapper.properties     # Gradle 8.2 wrapper
+├── build.gradle.kts
+├── settings.gradle.kts
+└── README.md
 ```
 
----
-
-## Design System — Astra Precision
-
-This project implements the **Astra Precision** design language — a high-contrast, aviation glass-cockpit aesthetic engineered for outdoor legibility and rapid data scanning.
-
-### Palette
+### Design System — Astra Precision
 
 | Role | Colour | Usage |
 |:---|:---|:---|
@@ -183,103 +147,220 @@ This project implements the **Astra Precision** design language — a high-contr
 | Primary (Safety Yellow) | `#FFD700` | Fix status, critical data |
 | Secondary (Signal Green) | `#78DC77` | Health, locked satellites |
 | Tertiary (Atmospheric Blue) | `#2196F3` | Auxiliary data |
-| Error | `#FFB4AB` | Warnings, errors |
 | On-Surface | `#E5E2E1` | Primary text |
 
-### Typography
+**Fonts**: JetBrains Mono (data values — anti-jitter monospace) + Inter (labels, navigation)
 
-- **JetBrains Mono** — all numeric values, coordinates, timestamps (monospaced to prevent text jitter on value change)
-- **Inter** — all labels, navigation, instructional text
+**Effects**: 12px glow (LED/CRT phosphor simulation), breathing status pip, tonal depth layers
 
-### Effects
-
-- **Glow**: Primary/secondary elements emit a `12px` soft glow (box-shadow) simulating LED/CRT phosphor
-- **Status pip**: Breathing animation on the "3D FIX" indicator
-- **Depth**: Tonal layer stacking instead of shadows; input fields appear recessed via inner borders
-
----
-
-## Build
-
-### Prerequisites
-
-- **JDK 17** (e.g. Eclipse Temurin)
-- **Android SDK 34** with build-tools 34.0.0
-- **Gradle 8.2** (wrapper included)
-
-### Quick Build
+### Build
 
 ```bash
-# Clone
 git clone https://github.com/th2006464/TelemetryPro.git
 cd TelemetryPro
-
-# Build debug APK
 ./gradlew assembleDebug
 ```
-
-Output: `app/build/outputs/apk/debug/app-debug.apk`
-
-### IDE
-
-Open in Android Studio Hedgehog (2023.1.1) or later. Sync Gradle, then run on device/emulator.
-
-### Environment
 
 | Component | Version |
 |:---|:---|
 | Kotlin | 1.9.21 |
 | Compose BOM | 2023.10.01 |
-| Compose Compiler | 1.5.7 |
 | Min SDK | 26 (Android 8.0) |
 | Target SDK | 34 |
 | Gradle | 8.2 |
 | osmdroid | 6.1.18 |
 
----
+### Development Notes
 
-## Development Notes & Lessons Learned
+1. **Theme as Code** — Astra Precision design tokens ported 1:1 into `Color.kt`, `Type.kt`, `Shape.kt`. Every new screen automatically inherits the aviation aesthetic.
+2. **Font Hosting** — JetBrains Mono + Inter bundled as Android `font` resources; works offline from first launch (unlike the HTML prototype's Google Fonts CDN).
+3. **osmdroid over Google Maps** — No Play Services dependency, configurable disk cache, labels disabled for pure position display.
+4. **GnssStatus.Callback over GpsStatus.Listener** — Modern API (24+) enables `getConstellationType()` for 8-system differentiation, plus `hasAlmanacData()`/`hasEphemerisData()` per satellite.
+5. **Single ViewModel** — Four screens share one GPS data source; lifecycle managed in `MainActivity` not per-screen. Tab switching doesn't restart the GNSS engine.
+6. **Speed Noise** — `Location.getSpeed()` returns m/s with low-velocity jitter. Raw readings displayed; future improvement: exponential moving average filter.
+7. **Build on Bare JDK** — No Android Studio required. Key: `local.properties` → SDK root, `ANDROID_HOME` env, `gradle.properties` → `android.useAndroidX=true`.
 
-### From HTML Prototype to Compose
-
-The original concept was prototyped as four static HTML + Tailwind CSS pages. Translating that to Compose required several deliberate decisions:
-
-**1. Theme as Code, Not CSS Variables**
-The Astra Precision design token file (YAML) was ported 1:1 into `Color.kt`, `Type.kt`, and `Shape.kt`. Compose's `MaterialTheme` is configured to use a custom dark color scheme that mirrors every slot in the original palette — `surface`, `surfaceVariant`, `onSurface`, etc. This means any new screen added later will automatically inherit the aviation aesthetic.
-
-**2. Font Hosting Strategy**
-The HTML prototype loaded JetBrains Mono and Inter from Google Fonts CDN. For the APK, fonts are bundled as Android `font` resources — ensuring they work offline from first launch. This was critical since the entire app is meant to function without network.
-
-**3. osmdroid for Offline Maps**
-Google Maps requires Play Services and a network connection. osmdroid uses OpenStreetMap tiles with a configurable disk cache, making it the only viable option for a fully offline map component. The map view is configured to render a plain vector map with `setLabelsIgnored(true)` — position dot only, no city names.
-
-**4. GnssStatus.Callback vs GpsStatus.Listener**
-Using the modern `GnssStatus.Callback` (API 24+) instead of the deprecated `GpsStatus.Listener` gives access to `getConstellationType()` — the key API that enables 8-system differentiation. The enhanced callback also provides `hasAlmanacData()` and `hasEphemerisData()` per satellite, and fires `onFirstFix()` with time-to-first-fix in milliseconds.
-
-**5. Single ViewModel Architecture**
-With four screens sharing the same GPS data source, a single `GpsViewModel` avoids duplicate listeners and ensures consistent state. The GPS lifecycle is managed via `onResume`/`onPause` in `MainActivity`, not per-screen — tab switching doesn't restart the GNSS engine.
-
-**6. Speed Conversion Pitfall**
-`Location.getSpeed()` returns m/s. Converting to km/h is `* 3.6`, but raw GPS speed readings are noisy at low velocities. The current implementation displays raw readings; a future improvement would be a low-pass filter (exponential moving average) to smooth out sub-1 km/h jitter.
-
-**7. APK Build Environment**
-Building on a machine without Android Studio required setting up JDK 17, Android SDK command-line tools, and Gradle wrapper manually. Key paths: `local.properties` must point to the SDK root, and `ANDROID_HOME` must be in the environment. The gradle.properties file sets `android.useAndroidX=true` and `org.gradle.jvmargs` for build performance.
-
----
-
-## Permissions
+### Permissions
 
 ```xml
 ACCESS_FINE_LOCATION   -- GPS coordinates
-ACCESS_COARSE_LOCATION -- Network-based fallback (not used, but declared)
-FOREGROUND_SERVICE_LOCATION -- For future background logging
-INTERNET               -- osmdroid tile download on first run (cached offline after)
+ACCESS_COARSE_LOCATION -- fallback
+FOREGROUND_SERVICE_LOCATION -- future background logging
+INTERNET               -- osmdroid initial tile download (cached offline after)
 ```
 
-On Android 12+, `ACCESS_FINE_LOCATION` must be requested at runtime. The app handles the permission flow in `MainActivity`.
+### License
+
+MIT — see [LICENSE](LICENSE).
 
 ---
 
-## License
+<a name="中文"></a>
 
-MIT — see [LICENSE](LICENSE) file.
+## 中文
+
+纯本地、零网络的 Android GPS 遥测监控应用。将手机化身为航空玻璃座舱仪表盘 — 实时 GNSS 数据、多星座卫星追踪、飞行模式检测，全部以航空级深色主题呈现。
+
+### 功能
+
+#### Dashboard 仪表盘
+- **GNSS 坐标** — 经纬度 DD/DMS 双格式，每秒刷新
+- **离线地图** — osmdroid 瓦片缓存，仅显示位置光点，无城市标签，无需网络
+- **星座概览** — 每个星座的可见卫星数、参与定位数、最佳 SNR
+- **气压高度**和**地面速度**（km/h）
+- **SNR 柱状图** — 按星座着色，按信号强度排序
+- **NMEA 日志流** — 实时滚动 GPS 原始语句
+
+#### Skyview 卫星天图
+- **雷达扫描器** — 动画扫描，星座着色卫星光点按仰角/方位角绘制
+- **星座图例** — 可切换各系统显示/隐藏
+- **卫星清单表** — SVID、星座、仰角、方位角、SNR (dB-Hz)、锁定状态（颜色标记）
+- **健康摘要** — 总可见数、参与定位数、全系统最佳 SNR
+
+#### Trends 趋势
+- **速度表** — 环形进度指示器，实时 km/h 读数
+- **高度趋势** — 近期高度历史折线图
+- **垂直速度指示器 (VSI)** — 爬升/下降速率 m/s
+- **地形背景** — 图表后方微妙的海拔渐变
+
+#### Settings 设置
+- **单位切换** — 公制 (km/h, m) / 英制 (mph, ft)
+- **坐标格式** — DD（十进制度）、DMS（度分秒）、UTM
+- **高度基准** — WGS84 椭球面或 MSL 校正
+- **离线数据** — 导出 NMEA 日志、清除缓存地图瓦片
+- **隐私声明** — 所有数据留在设备上，零网络传输
+
+#### 飞行模式检测
+自动识别高速/高空环境：
+- **速度 > 200 km/h** → `FLIGHT?` 指示器
+- **高度 > 8,000 m** → `HIGH ALT` 指示器
+
+### 八星座区分
+
+每个 GNSS 系统在所有视图中均独立识别并以专属颜色标记：
+
+| 星座 | 颜色 | 色值 |
+|:---|:---|:---|
+| **GPS**（美国） | 信号绿 | `#78DC77` |
+| **GLONASS**（俄罗斯） | 天蓝 | `#4FC3F7` |
+| **Galileo**（欧盟） | 薰衣草紫 | `#CE93D8` |
+| **BeiDou / 北斗**（中国） | 琥珀橙 | `#FFB74D` |
+| **QZSS**（日本） | 青绿 | `#4DB6AC` |
+| **IRNSS**（印度） | 玫瑰粉 | `#F48FB1` |
+| **SBAS** | 中性灰 | `#9E9E9E` |
+| **未知** | 暗灰 | `#616161` |
+
+通过 Android `GnssStatus.getConstellationType()`（API 26+）识别。
+
+### 架构
+
+```
+┌────────────────────────────────────────────────┐
+│                  Jetpack Compose UI              │
+│  ┌───────┐ ┌───────┐ ┌───────┐ ┌───────┐      │
+│  │仪表盘  │ │卫星天图│ │趋势图  │ │ 设置  │      │
+│  └───┬───┘ └───┬───┘ └───┬───┘ └───┬───┘      │
+│      └──────────┴──────────┴─────────┘          │
+│                       │                          │
+│              GpsViewModel（共享）                 │
+│              LocationState StateFlow              │
+├───────────────────────┼──────────────────────────┤
+│               GpsRepository                      │
+│  ┌────────────────┼──────────────────────┐       │
+│  │        LocationManager (Android)      │       │
+│  │  ┌────────┐ ┌────────┐ ┌─────────┐   │       │
+│  │  │位置监听│ │GNSS回调│ │NMEA监听 │   │       │
+│  │  │(1秒)  │ │(原始数据)│ │(原始语句)│  │       │
+│  │  └────────┘ └────────┘ └─────────┘   │       │
+│  └──────────────────────────────────────┘       │
+├──────────────────────────────────────────────────┤
+│                  Android GNSS 硬件层               │
+└──────────────────────────────────────────────────┘
+```
+
+**MVVM + StateFlow** — 四个页面共享一个 `GpsViewModel`，统一的 `LocationState` 数据类供所有视图消费。`WhileSubscribed(5000)` 策略确保最后一个观察者离开后 GPS 仍运行 5 秒。
+
+**零 Google Play Services** — 仅使用 `android.location.LocationManager`，可在 AOSP/非 Google 设备运行，完全无需网络。
+
+**1 秒刷新周期** — 三路并行事件驱动数据流：`LocationListener`、`GnssStatus.Callback`、`NMEAListener`。
+
+### 项目结构
+
+```
+TelemetryPro/
+├── app/
+│   └── src/main/
+│       ├── AndroidManifest.xml
+│       ├── java/com/telemetrypro/app/
+│       │   ├── MainActivity.kt          # 入口，导航宿主
+│       │   ├── data/
+│       │   │   ├── Constellation.kt     # 八星座枚举 + 颜色映射
+│       │   │   ├── GpsRepository.kt     # LocationManager 封装
+│       │   │   ├── LocationState.kt     # UI 状态数据类
+│       │   │   └── SatelliteInfo.kt     # 卫星 + 统计模型
+│       │   ├── viewmodel/
+│       │   │   └── GpsViewModel.kt      # 共享 ViewModel
+│       │   └── ui/
+│       │       ├── theme/               # Astra Precision 设计令牌
+│       │       ├── components/          # 7 个可复用组件
+│       │       └── screens/             # 4 个页面
+│       └── res/
+├── build.gradle.kts
+├── settings.gradle.kts
+└── README.md
+```
+
+### 设计系统 — Astra Precision
+
+| 角色 | 色值 | 用途 |
+|:---|:---|:---|
+| 背景 | `#131313` | 深炭黑底色 |
+| 表面 | `#201F1F` | 卡片面板 |
+| 主色（安全黄） | `#FFD700` | 定位状态、关键数据 |
+| 副色（信号绿） | `#78DC77` | 健康状态、已锁定卫星 |
+| 第三色（大气蓝） | `#2196F3` | 辅助数据 |
+| 前景文字 | `#E5E2E1` | 主要文字 |
+
+**字体**：JetBrains Mono（数据数值 — 等宽防抖）+ Inter（标签、导航）
+
+**特效**：12px 柔光（模拟 LED/CRT 荧光）、呼吸动画状态灯、色调深浅层次
+
+### 构建
+
+```bash
+git clone https://github.com/th2006464/TelemetryPro.git
+cd TelemetryPro
+./gradlew assembleDebug
+```
+
+| 组件 | 版本 |
+|:---|:---|
+| Kotlin | 1.9.21 |
+| Compose BOM | 2023.10.01 |
+| 最低 SDK | 26 (Android 8.0) |
+| 目标 SDK | 34 |
+| Gradle | 8.2 |
+| osmdroid | 6.1.18 |
+
+### 开发心得
+
+1. **主题即代码** — Astra Precision 设计令牌 1:1 移植到 `Color.kt`/`Type.kt`/`Shape.kt`，后续新增页面自动继承航空美学。
+2. **字体本地化** — JetBrains Mono + Inter 打包为 Android `font` 资源，首次启动即可离线使用（区别于 HTML 原型依赖 Google Fonts CDN）。
+3. **osmdroid 替代 Google Maps** — 无 Play Services 依赖，可配置磁盘缓存，关闭地名标签，仅显示位置光点。
+4. **GnssStatus.Callback 替代 GpsStatus.Listener** — 现代 API（24+）提供 `getConstellationType()` 实现八星座区分，并支持逐卫星 `hasAlmanacData()`/`hasEphemerisData()`。
+5. **单一 ViewModel** — 四个页面共用同一个 GPS 数据源，生命周期由 `MainActivity` 统一管理，切换标签不重启 GNSS 引擎。
+6. **速度噪声** — `Location.getSpeed()` 返回 m/s，低速时有抖动。当前展示原始读数，后续优化方向：指数移动平均滤波。
+7. **纯 JDK 构建** — 无需 Android Studio。关键配置：`local.properties` 指向 SDK 根目录、`ANDROID_HOME` 环境变量、`gradle.properties` 设置 `android.useAndroidX=true`。
+
+### 权限
+
+```xml
+ACCESS_FINE_LOCATION   -- GPS 精确定位
+ACCESS_COARSE_LOCATION -- 网络定位（备用）
+FOREGROUND_SERVICE_LOCATION -- 后台持续定位（预留）
+INTERNET               -- osmdroid 首次瓦片下载（离线后缓存）
+```
+
+### 许可证
+
+MIT — 详见 [LICENSE](LICENSE)。
