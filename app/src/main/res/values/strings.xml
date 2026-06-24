@@ -103,6 +103,10 @@
     <string name="snr_no_data">无卫星数据</string>
 
     <!-- GPS Permission -->
+    <!-- Map -->
+    <string name="map_world_position">世界定位</string>
+    <string name="map_pinch_hint">双指缩放 · 拖动平移</string>
+
     <string name="gps_started">GPS 监控已启动</string>
     <string name="lang_changed">语言已切换，请重启应用</string>
 </resources>

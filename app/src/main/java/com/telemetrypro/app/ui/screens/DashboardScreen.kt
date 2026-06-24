@@ -16,6 +16,7 @@ import com.telemetrypro.app.R
 import com.telemetrypro.app.data.GpsFixStatus
 import com.telemetrypro.app.data.LocationState
 import com.telemetrypro.app.ui.components.*
+import com.telemetrypro.app.ui.map.DotMatrixMap
 import com.telemetrypro.app.ui.theme.*
 
 @Composable
@@ -58,6 +59,20 @@ fun DashboardScreen(
             }
         }
 
+        // World Map — dot-matrix style
+        DotMatrixMap(
+            latitude = state.latitude,
+            longitude = state.longitude,
+            isFixed = state.fixStatus == GpsFixStatus.FIXED,
+            showCities = true,
+            mapLabel = stringResource(R.string.map_world_position),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(240.dp)
+                .padding(horizontal = 16.dp, vertical = 4.dp)
+        )
+
+        // GNSS coordinates
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -74,6 +89,7 @@ fun DashboardScreen(
             )
         }
 
+        // Altitude & Speed
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -94,6 +110,7 @@ fun DashboardScreen(
             )
         }
 
+        // Constellation stats
         if (state.constellationStats.isNotEmpty()) {
             ConstellationStatsCard(
                 stats = state.constellationStats,
@@ -101,6 +118,7 @@ fun DashboardScreen(
             )
         }
 
+        // SNR bar graph
         if (state.satellites.isNotEmpty()) {
             SnrBarGraph(
                 satellites = state.satellites,
@@ -108,6 +126,7 @@ fun DashboardScreen(
             )
         }
 
+        // Sat count & accuracy
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -129,6 +148,7 @@ fun DashboardScreen(
             )
         }
 
+        // NMEA feed
         NmeaFeed(
             lines = state.nmeaLogLines,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)

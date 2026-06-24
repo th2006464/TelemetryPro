@@ -102,6 +102,10 @@
     <string name="snr_no_data">No satellite data</string>
 
     <!-- GPS Permission -->
+    <!-- Map -->
+    <string name="map_world_position">World Position</string>
+    <string name="map_pinch_hint">Pinch to zoom · Drag to pan</string>
+
     <string name="gps_started">GPS monitoring started</string>
     <string name="lang_changed">Language changed, restart to apply</string>
 </resources>

@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="docs/logo.png" width="120" alt="Telemetry Pro" />
+
 # 🛰️ Telemetry Pro
 
 **离线 GPS 遥测监控 · Aviation Glass-Cockpit Instrument Cluster**
