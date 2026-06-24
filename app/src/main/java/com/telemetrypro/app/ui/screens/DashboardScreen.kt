@@ -67,7 +67,11 @@ fun DashboardScreen(
             longitude = state.longitude,
             isFixed = state.fixStatus == GpsFixStatus.FIXED,
             showCities = true,
-            mapLabel = stringResource(R.string.map_world_position),
+            mapLabel = if (state.isRecording)
+                "${stringResource(R.string.recording_label)} ${String.format("%.2f", state.recordingDistanceKm)} km"
+            else
+                stringResource(R.string.map_world_position),
+            trackPoints = if (state.isRecording) state.recordingPoints else emptyList(),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(240.dp)

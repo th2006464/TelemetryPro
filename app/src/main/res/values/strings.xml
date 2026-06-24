@@ -15,6 +15,7 @@
     <string name="nav_dashboard">仪表盘</string>
     <string name="nav_skyview">卫星天图</string>
     <string name="nav_trends">趋势</string>
+    <string name="nav_records">记录</string>
     <string name="nav_settings">设置</string>
 
     <!-- Dashboard -->
@@ -59,7 +60,7 @@
 
     <!-- Settings -->
     <string name="settings_title">系统配置</string>
-    <string name="settings_subtitle">控制面板 v4.2.0 // 离线模式运行中</string>
+    <string name="settings_subtitle">控制面板 v1.5.0 // 测距模块已上线</string>
     <string name="settings_distance_unit">距离单位</string>
     <string name="settings_metric_km">公制 (km)</string>
     <string name="settings_imperial_mi">英制 (mi)</string>
@@ -121,4 +122,20 @@
 
     <string name="gps_started">GPS 监控已启动</string>
     <string name="lang_changed">语言已切换，请重启应用</string>
+
+    <!-- Recording -->
+    <string name="recording_title">测距记录</string>
+    <string name="recording_start">▶ 开始</string>
+    <string name="recording_stop">■ 停止</string>
+    <string name="recording_recording">● 记录中</string>
+    <string name="recording_name_hint">输入记录名称…</string>
+    <string name="recording_default_name">记录 #%d</string>
+    <string name="recording_label">记录中</string>
+    <string name="recording_history">历史记录</string>
+    <string name="recording_empty">暂无记录，点击上方开始测距</string>
+    <string name="recording_col_time">时间</string>
+    <string name="recording_col_lat">纬度</string>
+    <string name="recording_col_lng">经度</string>
+    <string name="recording_col_alt">高度</string>
+    <string name="recording_col_spd">速度</string>
 </resources>

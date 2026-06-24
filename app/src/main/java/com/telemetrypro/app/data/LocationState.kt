@@ -56,5 +56,10 @@ data class LocationState(
     val longitudeDms: String = "",
 
     // Network mode
-    val isOnlineMode: Boolean = false
+    val isOnlineMode: Boolean = false,
+
+    // Recording / distance tracking
+    val isRecording: Boolean = false,
+    val recordingDistanceKm: Double = 0.0,
+    val recordingPoints: List<TrackPoint> = emptyList()
 )

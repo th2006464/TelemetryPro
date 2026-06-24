@@ -30,10 +30,11 @@ fun BottomNavBar(
     modifier: Modifier = Modifier
 ) {
     val tabs = listOf(
-        NavTab(stringResource(R.string.nav_dashboard), "dashboard"),
-        NavTab(stringResource(R.string.nav_skyview), "explore"),
-        NavTab(stringResource(R.string.nav_trends), "trending_up"),
-        NavTab(stringResource(R.string.nav_settings), "settings")
+        NavTab(stringResource(R.string.nav_dashboard), "⊞"),
+        NavTab(stringResource(R.string.nav_skyview), "⊡"),
+        NavTab(stringResource(R.string.nav_trends), "≣"),
+        NavTab(stringResource(R.string.nav_records), "◎"),
+        NavTab(stringResource(R.string.nav_settings), "⚙")
     )
 
     Row(

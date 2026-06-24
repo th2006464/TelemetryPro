@@ -8,60 +8,92 @@ import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.telemetrypro.app.data.GpsFixStatus
 import com.telemetrypro.app.data.GpsRepository
 import com.telemetrypro.app.data.LocationState
+import com.telemetrypro.app.data.TrackRepository
+import com.telemetrypro.app.data.TrackSession
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
-/**
- * Central ViewModel — manages GPS lifecycle and exposes UI state.
- * All screens observe this single ViewModel.
- */
 class GpsViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = GpsRepository(application)
+    val trackRepository = TrackRepository(application)
     private val prefs = application.getSharedPreferences("telemetry_pro", Context.MODE_PRIVATE)
 
-    /** Whether online/AGPS mode is enabled (persisted) */
     private val _isOnlineMode = MutableStateFlow(
         prefs.getBoolean("online_mode", false)
     )
     val isOnlineMode: StateFlow<Boolean> = _isOnlineMode.asStateFlow()
 
-    /** Live GPS state consumed by all Compose screens */
-    val state: StateFlow<LocationState> = repository.locationState
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = LocationState()
-        )
+    val isRecording: StateFlow<Boolean> = trackRepository.isRecording
+    val recordingDistanceKm: StateFlow<Double> = trackRepository.currentDistanceKm
+    val sessions: StateFlow<List<TrackSession>> = trackRepository.sessions
 
-    // Monitor actual network connectivity for status display
+    /** Combined GPS + track recording state */
+    val state: StateFlow<LocationState> = combine(
+        repository.locationState,
+        trackRepository.isRecording,
+        trackRepository.currentDistanceKm,
+        trackRepository.currentPoints
+    ) { gpsState, isRecording, distanceKm, trackPoints ->
+        gpsState.copy(
+            isRecording = isRecording,
+            recordingDistanceKm = distanceKm,
+            recordingPoints = trackPoints
+        )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = LocationState()
+    )
+
     private val _isNetworkAvailable = MutableStateFlow(false)
     val isNetworkAvailable: StateFlow<Boolean> = _isNetworkAvailable.asStateFlow()
 
+    private var lastRecordedTimestamp = 0L
+
     init {
         try {
-            // Apply persisted online mode on creation
             repository.onlineMode = _isOnlineMode.value
             monitorNetwork(application)
-        } catch (e: Exception) {
-            // Non-critical: app will still work in offline mode
+            observeGpsForTracking()
+        } catch (e: Exception) { }
+    }
+
+    /** Feed GPS location updates into track recorder when active */
+    private fun observeGpsForTracking() {
+        viewModelScope.launch {
+            repository.locationState.collect { locState ->
+                if (locState.fixStatus == GpsFixStatus.FIXED &&
+                    locState.timestamp > lastRecordedTimestamp &&
+                    locState.latitude != 0.0 &&
+                    locState.longitude != 0.0) {
+                    lastRecordedTimestamp = locState.timestamp
+                    trackRepository.appendPoint(
+                        latitude = locState.latitude,
+                        longitude = locState.longitude,
+                        altitude = locState.altitudeMeters,
+                        speedKmh = locState.speedKmh,
+                        accuracy = locState.accuracy,
+                        timestamp = locState.timestamp
+                    )
+                }
+            }
         }
     }
 
     private fun monitorNetwork(context: Context) {
         val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return
         val callback = object : ConnectivityManager.NetworkCallback() {
-            override fun onAvailable(network: Network) {
-                _isNetworkAvailable.value = true
-            }
-            override fun onLost(network: Network) {
-                _isNetworkAvailable.value = false
-            }
+            override fun onAvailable(network: Network) { _isNetworkAvailable.value = true }
+            override fun onLost(network: Network) { _isNetworkAvailable.value = false }
             override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
                 _isNetworkAvailable.value = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             }
@@ -70,14 +102,11 @@ class GpsViewModel(application: Application) : AndroidViewModel(application) {
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             .build()
         cm.registerNetworkCallback(request, callback)
-
-        // Initial check
         val activeNetwork = cm.activeNetwork
         val caps = if (activeNetwork != null) cm.getNetworkCapabilities(activeNetwork) else null
         _isNetworkAvailable.value = caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
     }
 
-    /** Toggle online/offline mode and restart GPS */
     fun setOnlineMode(enabled: Boolean) {
         _isOnlineMode.value = enabled
         prefs.edit().putBoolean("online_mode", enabled).apply()
@@ -85,12 +114,28 @@ class GpsViewModel(application: Application) : AndroidViewModel(application) {
         repository.restart()
     }
 
-    /** Start GPS monitoring — call from onResume or composition */
+    // --- Recording controls ---
+    fun startRecording(name: String) {
+        trackRepository.startRecording(name)
+    }
+
+    fun stopRecording() {
+        trackRepository.stopRecording()
+    }
+
+    fun deleteSession(sessionId: Long) {
+        trackRepository.deleteSession(sessionId)
+    }
+
+    fun renameSession(sessionId: Long, newName: String) {
+        trackRepository.renameSession(sessionId, newName)
+    }
+
+    // --- GPS lifecycle ---
     fun startMonitoring() {
         repository.start()
     }
 
-    /** Stop GPS monitoring — call from onPause or disposal */
     fun stopMonitoring() {
         repository.stop()
     }

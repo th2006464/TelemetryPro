@@ -15,6 +15,7 @@
     <string name="nav_dashboard">Dashboard</string>
     <string name="nav_skyview">Skyview</string>
     <string name="nav_trends">Trends</string>
+    <string name="nav_records">Records</string>
     <string name="nav_settings">Settings</string>
 
     <!-- Dashboard -->
@@ -120,4 +121,20 @@
 
     <string name="gps_started">GPS monitoring started</string>
     <string name="lang_changed">Language changed, restart to apply</string>
+
+    <!-- Recording -->
+    <string name="recording_title">DISTANCE TRACKING</string>
+    <string name="recording_start">▶ START</string>
+    <string name="recording_stop">■ STOP</string>
+    <string name="recording_recording">● RECORDING</string>
+    <string name="recording_name_hint">Enter session name…</string>
+    <string name="recording_default_name">Track #%d</string>
+    <string name="recording_label">Recording</string>
+    <string name="recording_history">SESSION HISTORY</string>
+    <string name="recording_empty">No sessions yet. Start tracking above.</string>
+    <string name="recording_col_time">Time</string>
+    <string name="recording_col_lat">Lat</string>
+    <string name="recording_col_lng">Lng</string>
+    <string name="recording_col_alt">Alt</string>
+    <string name="recording_col_spd">Spd</string>
 </resources>

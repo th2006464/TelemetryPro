@@ -24,6 +24,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.telemetrypro.app.ui.components.BottomNavBar
 import com.telemetrypro.app.ui.screens.DashboardScreen
+import com.telemetrypro.app.ui.screens.RecordScreen
 import com.telemetrypro.app.ui.screens.SettingsScreen
 import com.telemetrypro.app.ui.screens.SkyviewScreen
 import com.telemetrypro.app.ui.screens.TrendsScreen
@@ -61,6 +62,9 @@ private fun MainApp() {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val isOnlineMode by viewModel.isOnlineMode.collectAsStateWithLifecycle()
     val isNetworkAvailable by viewModel.isNetworkAvailable.collectAsStateWithLifecycle()
+    val isRecording by viewModel.isRecording.collectAsStateWithLifecycle()
+    val recordingDistanceKm by viewModel.recordingDistanceKm.collectAsStateWithLifecycle()
+    val sessions by viewModel.sessions.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -130,7 +134,17 @@ private fun MainApp() {
                     state = state,
                     isOnlineMode = isOnlineMode
                 )
-                3 -> SettingsScreen(
+                3 -> RecordScreen(
+                    state = state,
+                    isRecording = isRecording,
+                    distanceKm = recordingDistanceKm,
+                    sessions = sessions,
+                    onStartRecording = { name -> viewModel.startRecording(name) },
+                    onStopRecording = { viewModel.stopRecording() },
+                    onDeleteSession = { id -> viewModel.deleteSession(id) },
+                    onRenameSession = { id, name -> viewModel.renameSession(id, name) }
+                )
+                4 -> SettingsScreen(
                     isOnlineMode = isOnlineMode,
                     isNetworkAvailable = isNetworkAvailable,
                     gpsFixStatus = when (state.fixStatus) {
