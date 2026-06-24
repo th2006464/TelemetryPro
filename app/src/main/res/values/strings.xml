@@ -60,7 +60,7 @@
 
     <!-- Settings -->
     <string name="settings_title">系统配置</string>
-    <string name="settings_subtitle">控制面板 v1.5.0 // 测距模块已上线</string>
+    <string name="settings_subtitle">控制面板 v1.6.0 // 测距模块已上线</string>
     <string name="settings_distance_unit">距离单位</string>
     <string name="settings_metric_km">公制 (km)</string>
     <string name="settings_imperial_mi">英制 (mi)</string>
@@ -78,6 +78,10 @@
     <string name="settings_lang_chinese">中文</string>
     <string name="settings_lang_english">English</string>
     <string name="settings_local_storage">本地存储</string>
+    <string name="settings_nmea_record">NMEA 数据记录</string>
+    <string name="settings_nmea_record_subtitle">开启后将记录原始 NMEA 数据流</string>
+    <string name="settings_nmea_on">已开启</string>
+    <string name="settings_nmea_off">已关闭</string>
     <string name="settings_export_nmea">导出 NMEA 日志</string>
     <string name="settings_export_subtitle">24.8 MB 可用于同步</string>
     <string name="settings_clear_cache">清除本地缓存</string>

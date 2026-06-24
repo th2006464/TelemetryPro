@@ -65,6 +65,7 @@ private fun MainApp() {
     val isRecording by viewModel.isRecording.collectAsStateWithLifecycle()
     val recordingDistanceKm by viewModel.recordingDistanceKm.collectAsStateWithLifecycle()
     val sessions by viewModel.sessions.collectAsStateWithLifecycle()
+    val nmeaLoggingEnabled by viewModel.nmeaLoggingEnabled.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -153,6 +154,7 @@ private fun MainApp() {
                         com.telemetrypro.app.data.GpsFixStatus.NO_SIGNAL -> context.getString(R.string.fix_status_no_signal)
                     },
                     isFixed = state.fixStatus == com.telemetrypro.app.data.GpsFixStatus.FIXED,
+                    nmeaLoggingEnabled = nmeaLoggingEnabled,
                     onOnlineModeChanged = { enabled -> viewModel.setOnlineMode(enabled) },
                     onLanguageChanged = {
                         // Restart activity to apply new locale
@@ -160,7 +162,8 @@ private fun MainApp() {
                         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                         context.startActivity(intent)
                         Runtime.getRuntime().exit(0)
-                    }
+                    },
+                    onNmeaLoggingChanged = { enabled -> viewModel.setNmeaLoggingEnabled(enabled) }
                 )
             }
         }

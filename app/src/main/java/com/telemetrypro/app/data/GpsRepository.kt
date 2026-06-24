@@ -36,6 +36,10 @@ class GpsRepository(private val context: Context) {
     /** Whether network-assisted (AGPS) mode is enabled */
     var onlineMode: Boolean = false
 
+    /** Whether NMEA sentence logging is enabled — off by default */
+    private var _nmeaLoggingEnabled: Boolean = false
+    val nmeaLoggingEnabled: Boolean get() = _nmeaLoggingEnabled
+
     // --- StateFlows exposed to ViewModel ---
     private val _locationState = MutableStateFlow(LocationState())
     val locationState: StateFlow<LocationState> = _locationState.asStateFlow()
@@ -98,6 +102,7 @@ class GpsRepository(private val context: Context) {
 
     // --- NMEA Listener ---
     private val nmeaListener = OnNmeaMessageListener { message, _ ->
+        if (!_nmeaLoggingEnabled) return@OnNmeaMessageListener
         synchronized(_nmeaBuffer) {
             _nmeaBuffer.add(message.trim())
             if (_nmeaBuffer.size > maxNmeaLines) {
@@ -198,6 +203,20 @@ class GpsRepository(private val context: Context) {
     fun restart() {
         stop()
         start()
+    }
+
+    /**
+     * Enable or disable NMEA sentence logging.
+     * When disabled, NMEA listener is still active but data is discarded.
+     */
+    fun setNmeaLoggingEnabled(enabled: Boolean) {
+        _nmeaLoggingEnabled = enabled
+        if (!enabled) {
+            synchronized(_nmeaBuffer) {
+                _nmeaBuffer.clear()
+                _locationState.value = _locationState.value.copy(nmeaLogLines = emptyList())
+            }
+        }
     }
 
     // ============================================================

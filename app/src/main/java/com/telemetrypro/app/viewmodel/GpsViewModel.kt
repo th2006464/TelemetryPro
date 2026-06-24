@@ -36,6 +36,9 @@ class GpsViewModel(application: Application) : AndroidViewModel(application) {
     val recordingDistanceKm: StateFlow<Double> = trackRepository.currentDistanceKm
     val sessions: StateFlow<List<TrackSession>> = trackRepository.sessions
 
+    private val _nmeaLoggingEnabled = MutableStateFlow(false)
+    val nmeaLoggingEnabled: StateFlow<Boolean> = _nmeaLoggingEnabled.asStateFlow()
+
     /** Combined GPS + track recording state */
     val state: StateFlow<LocationState> = combine(
         repository.locationState,
@@ -112,6 +115,11 @@ class GpsViewModel(application: Application) : AndroidViewModel(application) {
         prefs.edit().putBoolean("online_mode", enabled).apply()
         repository.onlineMode = enabled
         repository.restart()
+    }
+
+    fun setNmeaLoggingEnabled(enabled: Boolean) {
+        _nmeaLoggingEnabled.value = enabled
+        repository.setNmeaLoggingEnabled(enabled)
     }
 
     // --- Recording controls ---

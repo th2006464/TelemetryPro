@@ -2,10 +2,7 @@ package com.telemetrypro.app.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -21,8 +18,9 @@ import com.telemetrypro.app.ui.theme.*
  *
  * @param label uppercase label above the value (LabelCaps style)
  * @param value large data display value
- * @param unit optional unit string displayed smaller after value
+ * @param unit optional unit string displayed smaller after value (below by default, inline when unitInline=true)
  * @param subLabel optional secondary line below value
+ * @param unitInline when true, unit is displayed on the same row to the right of value
  */
 @Composable
 fun ReadoutTile(
@@ -30,6 +28,7 @@ fun ReadoutTile(
     value: String,
     unit: String = "",
     subLabel: String = "",
+    unitInline: Boolean = false,
     valueColor: androidx.compose.ui.graphics.Color = PrimaryFixedDim,
     modifier: Modifier = Modifier
 ) {
@@ -46,22 +45,42 @@ fun ReadoutTile(
                 color = OnSurfaceVariant,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
-            Text(
-                text = buildString {
-                    append(value)
-                    if (unit.isNotEmpty()) append(" ")
-                },
-                style = if (value.length <= 6) DisplayData else TelemetryMd,
-                color = valueColor,
-                fontWeight = FontWeight.Bold
-            )
-            if (unit.isNotEmpty()) {
+            if (unitInline && unit.isNotEmpty()) {
+                // Unit inline — value and unit on same row
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = value,
+                        style = if (value.length <= 6) DisplayData else TelemetryMd,
+                        color = valueColor,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = unit,
+                        style = LabelCaps,
+                        color = OnSurfaceVariant
+                    )
+                }
+            } else {
                 Text(
-                    text = unit,
-                    style = LabelCaps,
-                    color = OnSurfaceVariant,
-                    modifier = Modifier.padding(top = 2.dp)
+                    text = buildString {
+                        append(value)
+                        if (unit.isNotEmpty()) append(" ")
+                    },
+                    style = if (value.length <= 6) DisplayData else TelemetryMd,
+                    color = valueColor,
+                    fontWeight = FontWeight.Bold
                 )
+                if (unit.isNotEmpty()) {
+                    Text(
+                        text = unit,
+                        style = LabelCaps,
+                        color = OnSurfaceVariant,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
             }
             if (subLabel.isNotEmpty()) {
                 Text(

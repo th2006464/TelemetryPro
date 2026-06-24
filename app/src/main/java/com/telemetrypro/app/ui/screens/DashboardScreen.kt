@@ -156,16 +156,11 @@ fun DashboardScreen(
                     label = stringResource(R.string.dashboard_accuracy),
                     value = String.format("%.1f", state.accuracy),
                     unit = stringResource(R.string.dashboard_unit_m),
+                    unitInline = true,
                     valueColor = if (state.accuracy < 10f) Secondary else OnSurfaceVariant,
                     modifier = Modifier.weight(1f)
                 )
             }
-
-            // NMEA feed
-            NmeaFeed(
-                lines = state.nmeaLogLines,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-            )
 
             Spacer(Modifier.height(80.dp))
         }

@@ -60,7 +60,7 @@
 
     <!-- Settings -->
     <string name="settings_title">System Configuration</string>
-    <string name="settings_subtitle">CONTROL PANEL v4.2.0 // OFFLINE MODE ACTIVE</string>
+    <string name="settings_subtitle">CONTROL PANEL v1.6.0 // DISTANCE TRACKING ACTIVE</string>
     <string name="settings_distance_unit">DISTANCE UNIT</string>
     <string name="settings_metric_km">METRIC (km)</string>
     <string name="settings_imperial_mi">IMPERIAL (mi)</string>
@@ -78,6 +78,10 @@
     <string name="settings_lang_chinese">中文</string>
     <string name="settings_lang_english">English</string>
     <string name="settings_local_storage">LOCAL STORAGE</string>
+    <string name="settings_nmea_record">NMEA Data Recording</string>
+    <string name="settings_nmea_record_subtitle">Record raw NMEA sentences when enabled</string>
+    <string name="settings_nmea_on">ON</string>
+    <string name="settings_nmea_off">OFF</string>
     <string name="settings_export_nmea">Export NMEA Logs</string>
     <string name="settings_export_subtitle">24.8 MB available for sync</string>
     <string name="settings_clear_cache">Clear Local Cache</string>

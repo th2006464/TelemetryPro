@@ -29,8 +29,10 @@ fun SettingsScreen(
     isNetworkAvailable: Boolean = false,
     gpsFixStatus: String = "3D FIX",
     isFixed: Boolean = false,
+    nmeaLoggingEnabled: Boolean = false,
     onOnlineModeChanged: (Boolean) -> Unit = {},
     onLanguageChanged: () -> Unit = {},
+    onNmeaLoggingChanged: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -370,6 +372,43 @@ fun SettingsScreen(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                // NMEA recording toggle
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(SurfaceContainerLowest, RoundedCornerShape(8.dp))
+                        .border(1.dp, OutlineVariant, RoundedCornerShape(8.dp))
+                        .clickable { onNmeaLoggingChanged(!nmeaLoggingEnabled) }
+                        .padding(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                stringResource(R.string.settings_nmea_record),
+                                style = TelemetryMd,
+                                color = OnSurface
+                            )
+                            Text(
+                                stringResource(R.string.settings_nmea_record_subtitle),
+                                style = CodeSm,
+                                color = OnSurfaceVariant
+                            )
+                        }
+                        Text(
+                            if (nmeaLoggingEnabled)
+                                stringResource(R.string.settings_nmea_on)
+                            else
+                                stringResource(R.string.settings_nmea_off),
+                            style = LabelCaps,
+                            color = if (nmeaLoggingEnabled) Secondary else OnSurfaceVariant.copy(alpha = 0.5f)
+                        )
+                    }
+                }
+
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -478,6 +517,40 @@ fun SettingsScreen(
                     stringResource(R.string.settings_contact_title) + ": " + stringResource(R.string.settings_contact_wechat),
                     style = CodeSm,
                     color = OnSurfaceVariant
+                )
+            }
+        }
+
+        // Version info
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            val pkgInfo = remember {
+                try {
+                    context.packageManager.getPackageInfo(context.packageName, 0)
+                } catch (e: Exception) { null }
+            }
+            val versionName = remember { pkgInfo?.versionName ?: "1.6.0" }
+            val buildDate = remember {
+                try {
+                    val date = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+                        .format(java.util.Date(pkgInfo?.lastUpdateTime ?: System.currentTimeMillis()))
+                    date
+                } catch (e: Exception) { "2026-06-24" }
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "Telemetry Pro v${versionName}",
+                    style = CodeSm,
+                    color = OnSurfaceVariant.copy(alpha = 0.5f)
+                )
+                Text(
+                    text = "Build: ${buildDate}",
+                    style = CodeSm,
+                    color = OnSurfaceVariant.copy(alpha = 0.35f)
                 )
             }
         }
