@@ -36,6 +36,7 @@ data class LocationState(
 
     // Speed
     val speed: Float = 0f,       // m/s (convert to km/h for display)
+    val bearing: Float = 0f,     // degrees, 0=N, clockwise
 
     // Time
     val timestamp: Long = 0L,

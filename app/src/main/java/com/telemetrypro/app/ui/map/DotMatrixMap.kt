@@ -40,6 +40,7 @@ fun DotMatrixMap(
     modifier: Modifier = Modifier,
     mapLabel: String = "",
     trackPoints: List<TrackPoint> = emptyList(),
+    isRecording: Boolean = false,
     showFullscreenButton: Boolean = false,
     onFullscreenClick: (() -> Unit)? = null,
     isFullscreen: Boolean = false
@@ -53,6 +54,10 @@ fun DotMatrixMap(
     var offsetY by remember { mutableStateOf(0f) }
     var initialized by remember { mutableStateOf(false) }
     var centeredOnFix by remember { mutableStateOf(false) }
+    var userPanned by remember { mutableStateOf(false) }
+
+    // Track recording: when recording starts, re-center on start point once
+    var lastRecordingState by remember { mutableStateOf(false) }
 
     val pulseRadius = 6f
     val pulseAlpha = 0.35f
@@ -150,6 +155,7 @@ fun DotMatrixMap(
                             }
                             offsetX += pan.x
                             offsetY += pan.y
+                            if (pan.x != 0f || pan.y != 0f) userPanned = true
                             scale = newScale
                         }
                     }
@@ -177,25 +183,54 @@ fun DotMatrixMap(
                     val cellW = mapW / gridWidth
                     val cellH = mapH / gridHeight
 
-                    // ---- Initialize offset to center on GPS position (or China fallback) ----
+                    // ---- Determine centering target ----
+                    // When recording starts (transition false→true), center on start point and zoom in.
+                    // During recording, auto-fit the trail bounding box unless user has manually panned.
+                    val recordingJustStarted = isRecording && !lastRecordingState
+                    lastRecordingState = isRecording
+
                     val shouldCenter = !initialized ||
-                        (isFixed && !centeredOnFix && latitude != 0.0 && longitude != 0.0)
+                        (isFixed && !centeredOnFix && !isRecording && latitude != 0.0 && longitude != 0.0) ||
+                        (recordingJustStarted && trackPoints.isNotEmpty())
+
                     if (shouldCenter) {
                         val cLat: Double
                         val cLng: Double
-                        if (isFixed && latitude != 0.0 && longitude != 0.0) {
+                        if (isRecording && trackPoints.isNotEmpty()) {
+                            // Center on start point of the recording
+                            cLat = trackPoints.first().latitude
+                            cLng = trackPoints.first().longitude
+                            if (recordingJustStarted) {
+                                scale = 12f  // zoom in for trail following
+                                userPanned = false
+                            }
+                        } else if (isFixed && latitude != 0.0 && longitude != 0.0) {
                             cLat = latitude
                             cLng = longitude
                         } else {
                             cLat = 35.0   // China center fallback
                             cLng = 105.0
                         }
+                        // Recompute mapW/H with potentially new scale
+                        val newMapH: Float
+                        val newMapW: Float
+                        if (canvasAspect > worldAspect) {
+                            newMapH = canvasH * scale
+                            newMapW = newMapH * worldAspect
+                        } else {
+                            newMapW = canvasW * scale
+                            newMapH = newMapW / worldAspect
+                        }
+                        val newCellW = newMapW / gridWidth
+                        val newCellH = newMapH / gridHeight
+                        val newMapLeft = (canvasW - newMapW) / 2f
+                        val newMapTop = (canvasH - newMapH) / 2f
                         val cGx = WorldMapProjection.longitudeToGridX(cLng, gridWidth)
                         val cGy = WorldMapProjection.mercatorY(cLat, gridHeight)
-                        offsetX = canvasW / 2f - mapLeft - cGx * cellW
-                        offsetY = canvasH / 2f - mapTop - cGy * cellH
+                        offsetX = canvasW / 2f - newMapLeft - cGx * newCellW
+                        offsetY = canvasH / 2f - newMapTop - cGy * newCellH
                         initialized = true
-                        if (isFixed) centeredOnFix = true
+                        if (isFixed && !isRecording) centeredOnFix = true
                     }
 
                     // ---- Grid origin on canvas (NO modulo — raw offset) ----
@@ -218,7 +253,7 @@ fun DotMatrixMap(
                         dstSize = IntSize(mapW.roundToInt(), mapH.roundToInt())
                     )
 
-                    // ---- Track recording path ----
+                    // ---- Track recording path with direction arrows ----
                     if (trackPoints.size >= 2) {
                         val trackOffsets = trackPoints.map { pt ->
                             latLngToCanvas(pt.latitude, pt.longitude)
@@ -229,8 +264,65 @@ fun DotMatrixMap(
                                 lineTo(trackOffsets[i].x, trackOffsets[i].y)
                             }
                         }
-                        drawPath(trackPath, Secondary.copy(alpha = 0.5f), style = Stroke(width = 1.5f))
-                        drawCircle(Secondary.copy(alpha = 0.8f), 4f, trackOffsets.first())
+                        drawPath(trackPath, Secondary.copy(alpha = 0.6f), style = Stroke(width = 2f))
+
+                        // Start point: green ring + "S" label
+                        val startPos = trackOffsets.first()
+                        drawCircle(Secondary.copy(alpha = 0.3f), 8f, startPos)
+                        drawCircle(Secondary, 4f, startPos)
+                        if (scale >= 4f) {
+                            val sLabel = textMeasurer.measure(
+                                text = "START",
+                                style = TextStyle(
+                                    fontSize = (8f / scale).coerceIn(6f, 10f).sp,
+                                    color = Secondary,
+                                    fontFamily = FontFamily.Default
+                                )
+                            )
+                            drawText(sLabel, topLeft = Offset(
+                                startPos.x - sLabel.size.width / 2f,
+                                startPos.y + 10f
+                            ))
+                        }
+
+                        // Direction arrows along the path (every N points)
+                        val arrowInterval = when {
+                            trackPoints.size < 20 -> 5
+                            trackPoints.size < 100 -> 10
+                            else -> 20
+                        }
+                        val arrowColor = Secondary.copy(alpha = 0.8f)
+                        for (i in trackOffsets.indices step arrowInterval) {
+                            if (i == 0 || i >= trackOffsets.size) continue
+                            val prev = trackOffsets[i - 1]
+                            val curr = trackOffsets[i]
+                            val dx = curr.x - prev.x
+                            val dy = curr.y - prev.y
+                            val len = sqrt(dx * dx + dy * dy)
+                            if (len < 8f) continue  // skip if points too close
+
+                            // Draw small triangle arrow in direction of travel
+                            val angle = atan2(dy, dx)
+                            val arrowSize = 5f
+                            val p1 = Offset(
+                                curr.x - arrowSize * cos(angle - 0.4f),
+                                curr.y - arrowSize * sin(angle - 0.4f)
+                            )
+                            val p2 = Offset(
+                                curr.x - arrowSize * cos(angle + 0.4f),
+                                curr.y - arrowSize * sin(angle + 0.4f)
+                            )
+                            val arrowPath = Path().apply {
+                                moveTo(curr.x, curr.y)
+                                lineTo(p1.x, p1.y)
+                                lineTo(p2.x, p2.y)
+                                close()
+                            }
+                            drawPath(arrowPath, arrowColor)
+                        }
+
+                        // Current position (end of track): yellow dot
+                        drawCircle(PrimaryFixedDim.copy(alpha = 0.3f), 8f, trackOffsets.last())
                         drawCircle(PrimaryFixedDim, 4f, trackOffsets.last())
                     }
 

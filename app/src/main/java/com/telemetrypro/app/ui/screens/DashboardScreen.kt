@@ -73,6 +73,7 @@ fun DashboardScreen(
             else
                 stringResource(R.string.map_world_position),
             trackPoints = if (state.isRecording) state.recordingPoints else emptyList(),
+            isRecording = state.isRecording,
             showFullscreenButton = true,
             onFullscreenClick = onFullscreenClick,
             modifier = Modifier

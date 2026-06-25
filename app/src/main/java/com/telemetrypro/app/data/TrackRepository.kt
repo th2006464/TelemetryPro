@@ -82,10 +82,10 @@ class TrackRepository(private val context: Context) {
 
     /** Append a GPS fix to the current recording session */
     fun appendPoint(latitude: Double, longitude: Double, altitude: Double,
-                    speedKmh: Float, accuracy: Float, timestamp: Long) {
+                    speedKmh: Float, accuracy: Float, timestamp: Long, bearing: Float = 0f) {
         if (!_isRecording.value) return
 
-        val point = TrackPoint(latitude, longitude, altitude, speedKmh, accuracy, timestamp)
+        val point = TrackPoint(latitude, longitude, altitude, speedKmh, accuracy, timestamp, bearing)
         val points = _currentPoints.value.toMutableList()
         points.add(point)
         _currentPoints.value = points
@@ -138,9 +138,9 @@ class TrackRepository(private val context: Context) {
             val metas = "${session.id}|${session.name}|${session.startTime}|${session.endTime}|${session.totalDistanceKm}"
             editor.putString(key, metas)
 
-            // Save points compactly: lat,lng,alt,spd,acc,ts;lat,lng,...
+            // Save points compactly: lat,lng,alt,spd,acc,ts,brg;lat,lng,...
             val ptsStr = session.points.joinToString(";") { pt ->
-                "${pt.latitude},${pt.longitude},${pt.altitude},${pt.speedKmh},${pt.accuracy},${pt.timestamp}"
+                "${pt.latitude},${pt.longitude},${pt.altitude},${pt.speedKmh},${pt.accuracy},${pt.timestamp},${pt.bearing}"
             }
             editor.putString("${key}_pts", ptsStr)
         }
@@ -169,7 +169,8 @@ class TrackRepository(private val context: Context) {
                             vals[2].toDoubleOrNull() ?: 0.0,
                             vals[3].toFloatOrNull() ?: 0f,
                             vals[4].toFloatOrNull() ?: 0f,
-                            vals[5].toLongOrNull() ?: 0L
+                            vals[5].toLongOrNull() ?: 0L,
+                            if (vals.size >= 7) vals[6].toFloatOrNull() ?: 0f else 0f
                         )
                     } else null
                 }

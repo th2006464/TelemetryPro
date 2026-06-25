@@ -237,6 +237,7 @@ class GpsRepository(private val context: Context) {
             accuracy = location.accuracy,
             altitude = location.altitude,
             speed = location.speed,
+            bearing = if (location.hasBearing()) location.bearing else 0f,
             timestamp = location.time,
             speedKmh = speedKmh,
             altitudeMeters = location.altitude,

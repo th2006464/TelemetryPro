@@ -84,7 +84,8 @@ class GpsViewModel(application: Application) : AndroidViewModel(application) {
                         altitude = locState.altitudeMeters,
                         speedKmh = locState.speedKmh,
                         accuracy = locState.accuracy,
-                        timestamp = locState.timestamp
+                        timestamp = locState.timestamp,
+                        bearing = locState.bearing
                     )
                 }
             }

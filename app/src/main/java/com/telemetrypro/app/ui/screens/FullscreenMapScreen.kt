@@ -56,6 +56,7 @@ fun FullscreenMapScreen(
             showCities = true,
             mapLabel = "",
             trackPoints = if (state.isRecording) state.recordingPoints else emptyList(),
+            isRecording = state.isRecording,
             isFullscreen = true,
             modifier = Modifier.fillMaxSize()
         )

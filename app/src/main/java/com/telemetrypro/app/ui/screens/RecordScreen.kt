@@ -149,11 +149,23 @@ fun RecordScreen(
                                 style = DisplayData,
                                 color = PrimaryFixedDim
                             )
-                            Text(
-                                "${state.recordingPoints.size} pts",
-                                style = CodeSm,
-                                color = OnSurfaceVariant.copy(alpha = 0.6f)
-                            )
+                            Row {
+                                Text(
+                                    "${state.recordingPoints.size} pts",
+                                    style = CodeSm,
+                                    color = OnSurfaceVariant.copy(alpha = 0.6f)
+                                )
+                                Spacer(Modifier.width(12.dp))
+                                val lastPt = state.recordingPoints.lastOrNull()
+                                if (lastPt != null) {
+                                    Text(
+                                        if (isZh) "方向 ${lastPt.compassDirection} (${lastPt.bearing.toInt()}°)"
+                                        else "HDG ${lastPt.compassDirection} (${lastPt.bearing.toInt()}°)",
+                                        style = CodeSm,
+                                        color = Secondary
+                                    )
+                                }
+                            }
                         }
                         Box(
                             modifier = Modifier
@@ -214,11 +226,38 @@ fun RecordScreen(
                                 }
                             }
                             drawPath(path, Secondary.copy(alpha = 0.6f), style = Stroke(width = 2f))
-                            drawPoints(offsets, PointMode.Points, Secondary.copy(alpha = 0.4f), strokeWidth = 3f)
+
+                            // Direction arrows
+                            val arrowInterval = when {
+                                pts.size < 20 -> 5
+                                pts.size < 100 -> 10
+                                else -> 20
+                            }
+                            for (i in offsets.indices step arrowInterval) {
+                                if (i == 0 || i >= offsets.size) continue
+                                val prev = offsets[i - 1]
+                                val curr = offsets[i]
+                                val dx = curr.x - prev.x
+                                val dy = curr.y - prev.y
+                                val len = kotlin.math.sqrt(dx * dx + dy * dy)
+                                if (len < 8f) continue
+                                val angle = kotlin.math.atan2(dy, dx)
+                                val sz = 5f
+                                val ap = Path().apply {
+                                    moveTo(curr.x, curr.y)
+                                    lineTo(curr.x - sz * kotlin.math.cos(angle - 0.4f), curr.y - sz * kotlin.math.sin(angle - 0.4f))
+                                    lineTo(curr.x - sz * kotlin.math.cos(angle + 0.4f), curr.y - sz * kotlin.math.sin(angle + 0.4f))
+                                    close()
+                                }
+                                drawPath(ap, Secondary.copy(alpha = 0.8f))
+                            }
+
                             // Start/end markers
                             if (offsets.isNotEmpty()) {
-                                drawCircle(Secondary, 6f, offsets.first())
-                                drawCircle(PrimaryFixedDim, 6f, offsets.last())
+                                drawCircle(Secondary.copy(alpha = 0.3f), 10f, offsets.first())
+                                drawCircle(Secondary, 5f, offsets.first())
+                                drawCircle(PrimaryFixedDim.copy(alpha = 0.3f), 10f, offsets.last())
+                                drawCircle(PrimaryFixedDim, 5f, offsets.last())
                             }
                         }
                     }
@@ -405,16 +444,17 @@ private fun SessionCard(
                     }
                 }
 
-                // Columns: time, lat, lng, alt, speed
+                // Columns: time, lat, lng, alt, speed, dir
                 Spacer(Modifier.height(8.dp))
                 val previewPts = session.points.takeLast(20)
                 Row(modifier = Modifier.fillMaxWidth()) {
                     listOf<Pair<String, Float>>(
-                        (if (isZh) "时间" else "Time") to 0.25f,
-                        (if (isZh) "纬度" else "Lat") to 0.2f,
-                        (if (isZh) "经度" else "Lng") to 0.2f,
-                        (if (isZh) "高度" else "Alt") to 0.15f,
-                        (if (isZh) "速度" else "Spd") to 0.2f
+                        (if (isZh) "时间" else "Time") to 0.2f,
+                        (if (isZh) "纬度" else "Lat") to 0.18f,
+                        (if (isZh) "经度" else "Lng") to 0.18f,
+                        (if (isZh) "高度" else "Alt") to 0.14f,
+                        (if (isZh) "速度" else "Spd") to 0.15f,
+                        (if (isZh) "方向" else "Dir") to 0.15f
                     ).forEach { (label, wf) ->
                         Text(label, style = TextStyle(
                             fontFamily = JetBrainsMonoFamily,
@@ -429,8 +469,9 @@ private fun SessionCard(
                         val t = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault())
                             .format(java.util.Date(pt.timestamp))
                         listOf<String>(t, "%.4f".format(pt.latitude), "%.4f".format(pt.longitude),
-                            "%.0fm".format(pt.altitude), "%.0f".format(pt.speedKmh))
-                            .zip(listOf(0.25f, 0.2f, 0.2f, 0.15f, 0.2f))
+                            "%.0fm".format(pt.altitude), "%.0f".format(pt.speedKmh),
+                            pt.compassDirection)
+                            .zip(listOf(0.2f, 0.18f, 0.18f, 0.14f, 0.15f, 0.15f))
                             .forEach { pair ->
                                 Text(pair.first, style = TextStyle(
                                     fontFamily = JetBrainsMonoFamily,

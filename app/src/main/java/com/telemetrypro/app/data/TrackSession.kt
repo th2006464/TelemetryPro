@@ -21,5 +21,15 @@ data class TrackPoint(
     val altitude: Double,
     val speedKmh: Float,
     val accuracy: Float,
-    val timestamp: Long
-)
+    val timestamp: Long,
+    val bearing: Float = 0f
+) {
+    /** Compass direction as 16-point label: N, NNE, NE, ENE, E, ... */
+    val compassDirection: String
+        get() {
+            val directions = arrayOf("N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW")
+            val normalized = ((bearing % 360f) + 360f) % 360f
+            val idx = ((normalized + 11.25f) / 22.5f).toInt() % 16
+            return directions[idx]
+        }
+}
