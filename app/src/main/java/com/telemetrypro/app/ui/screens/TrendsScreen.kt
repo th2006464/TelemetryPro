@@ -37,26 +37,6 @@ fun TrendsScreen(
     onRefreshCellInfo: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    // Cold-start crash protection:
-    // The state parameter changes at ~1Hz because location/GNSS callbacks
-    // keep updating _locationState even during the first composition frame.
-    // If a new state arrives before TrendsScreen finishes measuring/layouting
-    // its 7 cards + 4 Canvases, Compose restarts → backpressure → ANR → crash.
-    //
-    // Fix: snapshot state synchronously on first composition (remember{} =
-    // captured before children compose). Use SideEffect to unfreeze only
-    // AFTER the first frame commits successfully. SideEffect guarantees the
-    // frame has been drawn before switching to live state.
-    val snapshot = remember { mutableStateOf(state) }
-    var freeze by remember { mutableStateOf(true) }
-
-    if (freeze) {
-        SideEffect { freeze = false }
-    }
-
-    // Frozen snapshot for first frame; live state for subsequent frames
-    val displayState = if (freeze) snapshot.value else state
-
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -65,14 +45,14 @@ fun TrendsScreen(
     ) {
         TopAppBar(
             fixLabel = stringResource(R.string.fix_status_tracking),
-            isFixed = displayState.speedKmh > 0,
+            isFixed = state.speedKmh > 0,
             isOnline = isOnlineMode
         )
 
         Spacer(Modifier.height(8.dp))
 
         SpeedometerCard(
-            speedKmh = displayState.speedKmh,
+            speedKmh = state.speedKmh,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 4.dp)
@@ -92,15 +72,15 @@ fun TrendsScreen(
         ) {
             VsiCard(modifier = Modifier.weight(0.35f))
             TerrainCard(
-                altitude = displayState.altitudeMeters,
-                latitude = displayState.latitude,
-                longitude = displayState.longitude,
+                altitude = state.altitudeMeters,
+                latitude = state.latitude,
+                longitude = state.longitude,
                 modifier = Modifier.weight(0.65f)
             )
         }
 
         NmeaFeed(
-            lines = displayState.nmeaLogLines,
+            lines = state.nmeaLogLines,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
         )
 
@@ -109,19 +89,19 @@ fun TrendsScreen(
         // card's recomposition when high-frequency fields like state.satellites
         // change but this card's inputs don't.
         LocationSourceInfoCard(
-            provider = displayState.provider,
-            ttffMillis = displayState.ttffMillis,
-            isOnlineMode = displayState.isOnlineMode,
-            isNetworkAvailable = displayState.isNetworkAvailable,
-            latitude = displayState.latitude,
-            longitude = displayState.longitude,
-            accuracy = displayState.accuracy,
-            altitudeMeters = displayState.altitudeMeters,
-            speedKmh = displayState.speedKmh,
-            bearing = displayState.bearing,
-            usedSatellites = displayState.usedSatellites,
-            totalSatellites = displayState.totalSatellites,
-            nmeaLogLineCount = displayState.nmeaLogLines.size,
+            provider = state.provider,
+            ttffMillis = state.ttffMillis,
+            isOnlineMode = state.isOnlineMode,
+            isNetworkAvailable = state.isNetworkAvailable,
+            latitude = state.latitude,
+            longitude = state.longitude,
+            accuracy = state.accuracy,
+            altitudeMeters = state.altitudeMeters,
+            speedKmh = state.speedKmh,
+            bearing = state.bearing,
+            usedSatellites = state.usedSatellites,
+            totalSatellites = state.totalSatellites,
+            nmeaLogLineCount = state.nmeaLogLines.size,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
         )
 
@@ -147,7 +127,9 @@ private fun CellTowerInfoCard(
             .fillMaxWidth()
             .background(TileBackground, RoundedCornerShape(12.dp))
             .border(1.dp, TileBorder, RoundedCornerShape(12.dp))
-            .clickable { onRefresh() }
+            // NOTE: Do NOT put .clickable on this Column — it crashes on cold start
+            // when combined with verticalScroll in the parent. Only the refresh text
+            // below is clickable. Also use if-else, NOT return@Column (same issue).
             .padding(16.dp)
     ) {
         Row(
@@ -163,7 +145,8 @@ private fun CellTowerInfoCard(
             Text(
                 "点击刷新",
                 style = CodeSm,
-                color = OnSurfaceVariant.copy(alpha = 0.4f)
+                color = OnSurfaceVariant.copy(alpha = 0.4f),
+                modifier = Modifier.clickable { onRefresh() }
             )
         }
 
@@ -175,43 +158,42 @@ private fun CellTowerInfoCard(
                 style = CodeSm,
                 color = OnSurfaceVariant.copy(alpha = 0.4f)
             )
-            return@Column
+        } else {
+            // Operator / network
+            InfoRow("运营商", cellInfo.operatorName, valueColor = PrimaryFixedDim)
+            InfoRow("网络类型", cellInfo.networkTypeName + if (cellInfo.isRoaming) " · 漫游" else "")
+            InfoRow("信号强度", "${cellInfo.level}/4" + if (cellInfo.rsrpDbm != Int.MIN_VALUE) " · ${cellInfo.rsrpDbm} dBm" else "")
+
+            Spacer(Modifier.height(8.dp))
+
+            Text(
+                "服务小区（Serving Cell）",
+                style = LabelCaps,
+                color = OnSurfaceVariant,
+                modifier = Modifier.padding(bottom = 6.dp)
+            )
+
+            InfoRow("MCC 国家码", cellInfo.mcc)
+            InfoRow("MNC 网络码", cellInfo.mnc)
+            InfoRow("小区标识 CI", cellInfo.cellId)
+            InfoRow("跟踪区码 TAC", cellInfo.tac)
+            InfoRow("物理小区 PCI", cellInfo.pci)
+            InfoRow("频点", cellInfo.band)
+            if (cellInfo.rsrpDbm != Int.MIN_VALUE) InfoRow("参考信号功率 RSRP", "${cellInfo.rsrpDbm} dBm")
+            if (cellInfo.rsrqDb != Int.MIN_VALUE) InfoRow("参考信号质量 RSRQ", "${cellInfo.rsrqDb} dB")
+            InfoRow("邻区数量", "${cellInfo.neighborCount}")
+
+            Spacer(Modifier.height(8.dp))
+
+            Text(
+                "说明：网络辅助定位正是通过这些基站参数（CI、TAC、PCI、信号强度）" +
+                "向系统查询位置估算的。MCC 标识国家（中国=460），MNC 标识运营商" +
+                "（如移动=00/02，联通=01，电信=11）。RSRP 越接近 0 信号越强，" +
+                "一般 -80 dBm 以上为优，-110 dBm 以下为弱。点击卡片可手动刷新。",
+                style = CodeSm,
+                color = OnSurfaceVariant.copy(alpha = 0.5f)
+            )
         }
-
-        // Operator / network
-        InfoRow("运营商", cellInfo.operatorName, valueColor = PrimaryFixedDim)
-        InfoRow("网络类型", cellInfo.networkTypeName + if (cellInfo.isRoaming) " · 漫游" else "")
-        InfoRow("信号强度", "${cellInfo.level}/4" + if (cellInfo.rsrpDbm != Int.MIN_VALUE) " · ${cellInfo.rsrpDbm} dBm" else "")
-
-        Spacer(Modifier.height(8.dp))
-
-        Text(
-            "服务小区（Serving Cell）",
-            style = LabelCaps,
-            color = OnSurfaceVariant,
-            modifier = Modifier.padding(bottom = 6.dp)
-        )
-
-        InfoRow("MCC 国家码", cellInfo.mcc)
-        InfoRow("MNC 网络码", cellInfo.mnc)
-        InfoRow("小区标识 CI", cellInfo.cellId)
-        InfoRow("跟踪区码 TAC", cellInfo.tac)
-        InfoRow("物理小区 PCI", cellInfo.pci)
-        InfoRow("频点", cellInfo.band)
-        if (cellInfo.rsrpDbm != Int.MIN_VALUE) InfoRow("参考信号功率 RSRP", "${cellInfo.rsrpDbm} dBm")
-        if (cellInfo.rsrqDb != Int.MIN_VALUE) InfoRow("参考信号质量 RSRQ", "${cellInfo.rsrqDb} dB")
-        InfoRow("邻区数量", "${cellInfo.neighborCount}")
-
-        Spacer(Modifier.height(8.dp))
-
-        Text(
-            "说明：网络辅助定位正是通过这些基站参数（CI、TAC、PCI、信号强度）" +
-            "向系统查询位置估算的。MCC 标识国家（中国=460），MNC 标识运营商" +
-            "（如移动=00/02，联通=01，电信=11）。RSRP 越接近 0 信号越强，" +
-            "一般 -80 dBm 以上为优，-110 dBm 以下为弱。点击卡片可手动刷新。",
-            style = CodeSm,
-            color = OnSurfaceVariant.copy(alpha = 0.5f)
-        )
     }
 }
 
