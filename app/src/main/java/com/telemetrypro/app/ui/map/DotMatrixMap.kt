@@ -41,7 +41,7 @@ fun DotMatrixMap(
     onFullscreenClick: (() -> Unit)? = null,
     isFullscreen: Boolean = false
 ) {
-    var scale by remember { mutableStateOf(1.3f) }
+    var scale by remember { mutableStateOf(3.0f) }
     var offsetX by remember { mutableStateOf(0f) }
     var offsetY by remember { mutableStateOf(0f) }
     var initialized by remember { mutableStateOf(false) }
@@ -87,7 +87,7 @@ fun DotMatrixMap(
                         // when scale changes, so the pinch centroid stays stationary on the map.
                         detectTransformGestures { centroid, pan, zoom, _ ->
                             val oldScale = scale
-                            val newScale = (oldScale * zoom).coerceIn(0.5f, 5f)
+                            val newScale = (oldScale * zoom).coerceIn(0.5f, 10f)
                             val actualZoom = newScale / oldScale
 
                             val worldAspect = 126f / 60f
@@ -283,7 +283,7 @@ fun DotMatrixMap(
             }
 
             // Pinch hint (hidden in fullscreen)
-            if (scale < 1.5f && !isFullscreen) {
+            if (scale < 2.0f && !isFullscreen) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()

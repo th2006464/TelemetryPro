@@ -1004,6 +1004,17 @@ UI Screens
 
 ### Changelog
 
+#### v1.7.4 (2026-06-25)
+
+- **Dashboard 布局调整**: GNSS 坐标 + 定位精度左右并排；星座统计 + 卫星数改为左右并排放置
+- **地图默认缩放**: 初始缩放从 1.3x 提升至 3.0x（国家/大陆范围），最大缩放上限提升至 10.0x，城市标签在更高缩放下自动显示名称
+
+#### v1.7.4 (2026-06-25)
+
+- **Dashboard layout**: GNSS coordinates + accuracy side by side; constellation stats + satellite count now left-right aligned
+- **Map zoom**: Default scale increased from 1.3x to 3.0x (country/continent range), max zoom increased to 10.0x. City labels visible at higher zoom levels.
+
+
 #### v1.7.3 (2026-06-25)
 
 - **修复**: 网络状态检测 — 添加 `ACCESS_NETWORK_STATE` 权限声明，解决在线模式下始终显示「等待网络连接」的问题

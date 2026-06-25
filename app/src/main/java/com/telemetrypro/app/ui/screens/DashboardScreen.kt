@@ -88,7 +88,7 @@ fun DashboardScreen(
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
         ) {
-            // GNSS coordinates
+            // GNSS coordinates + Accuracy
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -103,7 +103,16 @@ fun DashboardScreen(
                             if (state.longitude >= 0) "°E" else "°W",
                     modifier = Modifier.weight(1f)
                 )
+                ReadoutTile(
+                    label = stringResource(R.string.dashboard_accuracy),
+                    value = String.format("%.1f", state.accuracy),
+                    unit = stringResource(R.string.dashboard_unit_m),
+                    unitInline = true,
+                    valueColor = if (state.accuracy < 10f) Secondary else OnSurfaceVariant,
+                    modifier = Modifier.weight(1f)
+                )
             }
+
 
             // Altitude & Speed
             Row(
@@ -126,13 +135,27 @@ fun DashboardScreen(
                 )
             }
 
-            // Constellation stats
+            // Constellation stats + Sat count (left-right)
             if (state.constellationStats.isNotEmpty()) {
-                ConstellationStatsCard(
-                    stats = state.constellationStats,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    ConstellationStatsCard(
+                        stats = state.constellationStats,
+                        modifier = Modifier.weight(1f)
+                    )
+                    ReadoutTile(
+                        label = stringResource(R.string.dashboard_sat_count),
+                        value = "${state.usedSatellites}/${state.totalSatellites}",
+                        valueColor = Secondary,
+                        modifier = Modifier.width(120.dp)
+                    )
+                }
             }
+
 
             // SNR bar graph
             if (state.satellites.isNotEmpty()) {
@@ -141,30 +164,6 @@ fun DashboardScreen(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
                 )
             }
-
-            // Sat count & accuracy
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                ReadoutTile(
-                    label = stringResource(R.string.dashboard_sat_count),
-                    value = "${state.usedSatellites}/${state.totalSatellites}",
-                    valueColor = Secondary,
-                    modifier = Modifier.weight(1f)
-                )
-                ReadoutTile(
-                    label = stringResource(R.string.dashboard_accuracy),
-                    value = String.format("%.1f", state.accuracy),
-                    unit = stringResource(R.string.dashboard_unit_m),
-                    unitInline = true,
-                    valueColor = if (state.accuracy < 10f) Secondary else OnSurfaceVariant,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
             Spacer(Modifier.height(80.dp))
         }
     }
