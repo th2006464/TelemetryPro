@@ -26,5 +26,8 @@ Thumbs.db
 # WorkBuddy
 .workbuddy/
 
+# Map raw data (large source files, regenerable via generate_world_map_v2.js)
+tools/map/data/
+
 # Logs
 *.log
