@@ -23,9 +23,14 @@ import com.telemetrypro.app.ui.theme.*
 fun DashboardScreen(
     state: LocationState,
     isOnlineMode: Boolean = false,
+    coordFormatDms: Int = 0,
     onFullscreenClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    val latText = if (coordFormatDms == 1) state.latitudeDms else String.format("%.4f", state.latitude)
+    val lngText = if (coordFormatDms == 1) state.longitudeDms else String.format("%.4f", state.longitude)
+    val latUnit = if (state.latitude >= 0) "°N" else "°S"
+    val lngUnit = if (state.longitude >= 0) "°E" else "°W"
     // Fixed header area — map never scrolls, gestures are isolated
     Column(
         modifier = modifier
@@ -99,11 +104,11 @@ fun DashboardScreen(
             ) {
                 ReadoutTile(
                     label = stringResource(R.string.dashboard_gnss_coords),
-                    value = String.format("%.4f", state.latitude),
-                    unit = if (state.latitude >= 0) "°N" else "°S",
+                    value = latText,
+                    unit = latUnit,
                     unitInline = true,
-                    secondaryValue = String.format("%.4f", state.longitude),
-                    secondaryUnit = if (state.longitude >= 0) "°E" else "°W",
+                    secondaryValue = lngText,
+                    secondaryUnit = lngUnit,
                     modifier = Modifier.weight(1f).fillMaxHeight()
                 )
                 ReadoutTile(

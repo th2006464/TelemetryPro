@@ -42,6 +42,12 @@ class GpsViewModel(application: Application) : AndroidViewModel(application) {
     private val _nmeaLoggingEnabled = MutableStateFlow(false)
     val nmeaLoggingEnabled: StateFlow<Boolean> = _nmeaLoggingEnabled.asStateFlow()
 
+    // 0=DD (decimal degrees), 1=DMS (degrees minutes seconds)
+    private val _coordFormatDms = MutableStateFlow(
+        prefs.getInt("coord_format", 0)
+    )
+    val coordFormatDms: StateFlow<Int> = _coordFormatDms.asStateFlow()
+
     /** Combined GPS + track recording state */
     val state: StateFlow<LocationState> = combine(
         repository.locationState,
@@ -151,6 +157,11 @@ class GpsViewModel(application: Application) : AndroidViewModel(application) {
     fun setNmeaLoggingEnabled(enabled: Boolean) {
         _nmeaLoggingEnabled.value = enabled
         repository.setNmeaLoggingEnabled(enabled)
+    }
+
+    fun setCoordFormat(dms: Int) {
+        _coordFormatDms.value = dms
+        prefs.edit().putInt("coord_format", dms).apply()
     }
 
     // --- Recording controls ---

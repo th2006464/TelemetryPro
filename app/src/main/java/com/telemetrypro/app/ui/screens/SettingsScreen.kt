@@ -27,12 +27,14 @@ import com.telemetrypro.app.ui.theme.*
 fun SettingsScreen(
     isOnlineMode: Boolean = false,
     isNetworkAvailable: Boolean = false,
+    coordFormatDms: Int = 0,
     gpsFixStatus: String = "3D FIX",
     isFixed: Boolean = false,
     nmeaLoggingEnabled: Boolean = false,
     onOnlineModeChanged: (Boolean) -> Unit = {},
     onLanguageChanged: () -> Unit = {},
     onNmeaLoggingChanged: (Boolean) -> Unit = {},
+    onCoordFormatChanged: (Int) -> Unit ={},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -301,7 +303,6 @@ fun SettingsScreen(
             title = stringResource(R.string.settings_coord_system),
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
         ) {
-            var selectedSystem by remember { mutableIntStateOf(0) }
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 val systems = listOf(
                     Triple(stringResource(R.string.settings_crs_dd), stringResource(R.string.settings_crs_dd_example), 0),
@@ -309,7 +310,7 @@ fun SettingsScreen(
                     Triple(stringResource(R.string.settings_crs_utm), stringResource(R.string.settings_crs_utm_example), -1)
                 )
                 systems.forEach { (name, example, idx) ->
-                    val isSelected = idx >= 0 && idx == selectedSystem
+                    val isSelected = idx >= 0 && idx == coordFormatDms
                     val isEnabled = idx >= 0
                     Box(
                         modifier = Modifier
@@ -324,7 +325,7 @@ fun SettingsScreen(
                                 RoundedCornerShape(8.dp)
                             )
                             .then(
-                                if (isEnabled) Modifier.clickable { selectedSystem = idx }
+                                if (isEnabled) Modifier.clickable { onCoordFormatChanged(idx) }
                                 else Modifier.alpha(0.5f)
                             )
                             .padding(12.dp)

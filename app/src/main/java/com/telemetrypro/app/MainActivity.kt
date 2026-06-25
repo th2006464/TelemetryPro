@@ -68,6 +68,7 @@ private fun MainApp() {
     val sessions by viewModel.sessions.collectAsStateWithLifecycle()
     val nmeaLoggingEnabled by viewModel.nmeaLoggingEnabled.collectAsStateWithLifecycle()
     val cellInfo by viewModel.cellInfoProvider.cellInfo.collectAsStateWithLifecycle()
+    val coordFormatDms by viewModel.coordFormatDms.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -129,6 +130,7 @@ private fun MainApp() {
                 0 -> DashboardScreen(
                     state = state,
                     isOnlineMode = isOnlineMode,
+                    coordFormatDms = coordFormatDms,
                     onFullscreenClick = { showFullscreenMap = true }
                 )
                 1 -> SkyviewScreen(
@@ -154,6 +156,7 @@ private fun MainApp() {
                 4 -> SettingsScreen(
                     isOnlineMode = isOnlineMode,
                     isNetworkAvailable = isNetworkAvailable,
+                    coordFormatDms = coordFormatDms,
                     gpsFixStatus = when (state.fixStatus) {
                         com.telemetrypro.app.data.GpsFixStatus.FIXED -> "3D FIX"
                         com.telemetrypro.app.data.GpsFixStatus.SEARCHING -> context.getString(R.string.fix_status_searching)
@@ -168,7 +171,8 @@ private fun MainApp() {
                         context.startActivity(intent)
                         // Activity will be recreated with new locale via attachBaseContext
                     },
-                    onNmeaLoggingChanged = { enabled -> viewModel.setNmeaLoggingEnabled(enabled) }
+                    onNmeaLoggingChanged = { enabled -> viewModel.setNmeaLoggingEnabled(enabled) },
+                    onCoordFormatChanged = { dms -> viewModel.setCoordFormat(dms) }
                 )
             }
 
