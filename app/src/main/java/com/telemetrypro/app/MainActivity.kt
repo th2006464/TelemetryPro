@@ -67,6 +67,7 @@ private fun MainApp() {
     val recordingDistanceKm by viewModel.recordingDistanceKm.collectAsStateWithLifecycle()
     val sessions by viewModel.sessions.collectAsStateWithLifecycle()
     val nmeaLoggingEnabled by viewModel.nmeaLoggingEnabled.collectAsStateWithLifecycle()
+    val cellInfo by viewModel.cellInfoProvider.cellInfo.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -137,7 +138,7 @@ private fun MainApp() {
                 2 -> TrendsScreen(
                     state = state,
                     isOnlineMode = isOnlineMode,
-                    cellInfo = viewModel.cellInfoProvider.cellInfo.collectAsStateWithLifecycle().value,
+                    cellInfo = cellInfo,
                     onRefreshCellInfo = { viewModel.refreshCellInfo() }
                 )
                 3 -> RecordScreen(

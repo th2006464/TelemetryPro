@@ -9,6 +9,7 @@ import android.location.LocationManager
 import android.location.OnNmeaMessageListener
 import android.os.Build
 import android.os.Looper
+import android.os.SystemClock
 import androidx.core.location.LocationManagerCompat
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -49,6 +50,17 @@ class GpsRepository(private val context: Context) {
 
     private val _nmeaBuffer = mutableListOf<String>()
     private val maxNmeaLines = 30
+
+    // Cold-start crash mitigation: GNSS callback (onSatelliteStatusChanged) fires
+    // frequently right after start(). If we let every callback overwrite the main
+    // _locationState, TrendsScreen — the heaviest screen (7 cards, 4 canvases,
+    // ~30 Text nodes) — can't finish its first composition before the next state
+    // emission arrives, causing recomposition backpressure → ANR → crash.
+    // Strategy: suppress satellite state updates for the first 2 seconds after
+    // start(), giving TrendsScreen time to compose. The independent _satellites
+    // flow still updates immediately so SkyviewScreen isn't affected.
+    private var satelliteStateSuppressedUntilMs = 0L
+    private val SATELLITE_STATE_SUPPRESSION_MS = 2000L
 
     // --- Location Listener ---
     private val locationListener = object : LocationListener {
@@ -121,6 +133,9 @@ class GpsRepository(private val context: Context) {
 
     @SuppressLint("MissingPermission")
     fun start() {
+        // Reset cold-start suppression window — gives UI 2s to compose before
+        // GNSS callback storms start mutating _locationState.
+        satelliteStateSuppressedUntilMs = SystemClock.elapsedRealtime() + SATELLITE_STATE_SUPPRESSION_MS
         val lm = locationManager ?: return
         try {
             // GPS provider — always active
@@ -315,7 +330,16 @@ class GpsRepository(private val context: Context) {
             )
         }.sortedByDescending { it.usedInFix }
 
+        // Independent flow always updates — SkyviewScreen reads this directly
+        // and is not affected by the cold-start suppression window.
         _satellites.value = list
+
+        // Cold-start suppression: skip updating the main _locationState during
+        // the first 2 seconds after start(). This prevents the GNSS callback
+        // storm from overwhelming TrendsScreen's first composition.
+        val now = SystemClock.elapsedRealtime()
+        if (now < satelliteStateSuppressedUntilMs) return
+
         _locationState.value = _locationState.value.copy(
             totalSatellites = list.size,
             usedSatellites = usedCount,

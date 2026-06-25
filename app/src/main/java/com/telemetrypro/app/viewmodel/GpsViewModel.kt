@@ -138,7 +138,9 @@ class GpsViewModel(application: Application) : AndroidViewModel(application) {
         repository.restart()
         // Refresh network status when user toggles online mode
         checkNetworkImmediate()
-        viewModelScope.launch { cellInfoProvider.refresh() }
+        // Must run on IO — NetworkCellInfoProvider.refresh() calls tm.allCellInfo
+        // which is a blocking Binder IPC. Running on main thread causes ANR.
+        viewModelScope.launch(Dispatchers.IO) { cellInfoProvider.refresh() }
     }
 
     /** Trigger a one-shot read of cellular tower info on background thread. */

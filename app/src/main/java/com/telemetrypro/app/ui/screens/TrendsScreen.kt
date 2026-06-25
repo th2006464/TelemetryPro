@@ -27,7 +27,6 @@ import com.telemetrypro.app.data.NetworkCellInfoProvider
 import com.telemetrypro.app.ui.components.NmeaFeed
 import com.telemetrypro.app.ui.components.TopAppBar
 import com.telemetrypro.app.ui.theme.*
-import kotlinx.coroutines.delay
 import kotlin.math.min as mathMin
 
 @Composable
@@ -38,16 +37,9 @@ fun TrendsScreen(
     onRefreshCellInfo: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    // Refresh cell info periodically while this screen is visible.
-    // Small initial delay to avoid hitting TelephonyManager during cold-start UI inflation.
-    LaunchedEffect(Unit) {
-        delay(500L)
-        onRefreshCellInfo()
-        while (true) {
-            delay(10_000L)
-            onRefreshCellInfo()
-        }
-    }
+    // No auto-refresh on screen entry — only refresh on tap.
+    // This avoids cold-start crashes from TelephonyManager not being ready.
+    // The card has a "点击刷新" hint and is clickable.
 
     Column(
         modifier = modifier
@@ -97,8 +89,23 @@ fun TrendsScreen(
         )
 
         // Location source info panel
+        // Pass individual fields (not the whole state) so Compose can skip this
+        // card's recomposition when high-frequency fields like state.satellites
+        // change but this card's inputs don't.
         LocationSourceInfoCard(
-            state = state,
+            provider = state.provider,
+            ttffMillis = state.ttffMillis,
+            isOnlineMode = state.isOnlineMode,
+            isNetworkAvailable = state.isNetworkAvailable,
+            latitude = state.latitude,
+            longitude = state.longitude,
+            accuracy = state.accuracy,
+            altitudeMeters = state.altitudeMeters,
+            speedKmh = state.speedKmh,
+            bearing = state.bearing,
+            usedSatellites = state.usedSatellites,
+            totalSatellites = state.totalSatellites,
+            nmeaLogLineCount = state.nmeaLogLines.size,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
         )
 
@@ -194,7 +201,19 @@ private fun CellTowerInfoCard(
 
 @Composable
 private fun LocationSourceInfoCard(
-    state: LocationState,
+    provider: String,
+    ttffMillis: Long,
+    isOnlineMode: Boolean,
+    isNetworkAvailable: Boolean,
+    latitude: Double,
+    longitude: Double,
+    accuracy: Float,
+    altitudeMeters: Double,
+    speedKmh: Float,
+    bearing: Float,
+    usedSatellites: Int,
+    totalSatellites: Int,
+    nmeaLogLineCount: Int,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -215,20 +234,20 @@ private fun LocationSourceInfoCard(
         InfoRow(
             label = "当前定位来源",
             value = when {
-                state.provider.isEmpty() -> "未定位"
-                state.provider == "gps" -> "卫星定位（GPS / GNSS）"
-                state.provider == "network" -> "网络辅助定位（基站 / Wi-Fi）"
-                state.provider == "fused" -> "融合定位（卫星 + 网络）"
-                else -> state.provider
+                provider.isEmpty() -> "未定位"
+                provider == "gps" -> "卫星定位（GPS / GNSS）"
+                provider == "network" -> "网络辅助定位（基站 / Wi-Fi）"
+                provider == "fused" -> "融合定位（卫星 + 网络）"
+                else -> provider
             },
-            valueColor = if (state.provider == "gps") Secondary else PrimaryFixedDim
+            valueColor = if (provider == "gps") Secondary else PrimaryFixedDim
         )
 
         // --- TTFF ---
-        if (state.ttffMillis > 0) {
+        if (ttffMillis > 0) {
             InfoRow(
                 label = "首次定位时间",
-                value = "${"%.1f".format(state.ttffMillis / 1000.0)} 秒",
+                value = "${"%.1f".format(ttffMillis / 1000.0)} 秒",
                 hint = "从启动到获取第一个有效定位的时间"
             )
         }
@@ -244,13 +263,13 @@ private fun LocationSourceInfoCard(
         )
         InfoRow(
             label = "辅助定位开关",
-            value = if (state.isOnlineMode) "已开启" else "已关闭",
-            valueColor = if (state.isOnlineMode) Secondary else OnSurfaceVariant
+            value = if (isOnlineMode) "已开启" else "已关闭",
+            valueColor = if (isOnlineMode) Secondary else OnSurfaceVariant
         )
         InfoRow(
             label = "网络连接",
-            value = if (state.isNetworkAvailable) "已连接" else "未连接",
-            valueColor = if (state.isNetworkAvailable) Secondary else OnSurfaceVariant
+            value = if (isNetworkAvailable) "已连接" else "未连接",
+            valueColor = if (isNetworkAvailable) Secondary else OnSurfaceVariant
         )
 
         Spacer(Modifier.height(8.dp))
@@ -271,13 +290,13 @@ private fun LocationSourceInfoCard(
             Text("当前值", style = CodeSm, color = OnSurfaceVariant.copy(alpha = 0.5f), modifier = Modifier.weight(0.24f))
         }
 
-        CapabilityRow("经纬度", "✓ 精确", "✓ 粗略", String.format("%.4f, %.4f", state.latitude, state.longitude))
-        CapabilityRow("精度", "1-10米", "10-100米", "${"%.1f".format(state.accuracy)} 米")
-        CapabilityRow("海拔", "✓ 可靠", "✗ 不可靠", if (state.altitudeMeters != 0.0) "${"%.0f".format(state.altitudeMeters)} 米" else "—")
-        CapabilityRow("速度", "✓ 可靠", "✗ 通常为0", "${"%.1f".format(state.speedKmh)} km/h")
-        CapabilityRow("方向", "✓ 可靠", "✗ 通常无", if (state.bearing > 0) "${state.bearing.toInt()}°" else "—")
-        CapabilityRow("卫星数", "✓", "✗ 无", "${state.usedSatellites}/${state.totalSatellites}")
-        CapabilityRow("NMEA数据", "✓", "✗ 无", if (state.nmeaLogLines.isNotEmpty()) "${state.nmeaLogLines.size} 行" else "—")
+        CapabilityRow("经纬度", "✓ 精确", "✓ 粗略", String.format("%.4f, %.4f", latitude, longitude))
+        CapabilityRow("精度", "1-10米", "10-100米", "${"%.1f".format(accuracy)} 米")
+        CapabilityRow("海拔", "✓ 可靠", "✗ 不可靠", if (altitudeMeters != 0.0) "${"%.0f".format(altitudeMeters)} 米" else "—")
+        CapabilityRow("速度", "✓ 可靠", "✗ 通常为0", "${"%.1f".format(speedKmh)} km/h")
+        CapabilityRow("方向", "✓ 可靠", "✗ 通常无", if (bearing > 0) "${bearing.toInt()}°" else "—")
+        CapabilityRow("卫星数", "✓", "✗ 无", "$usedSatellites/$totalSatellites")
+        CapabilityRow("NMEA数据", "✓", "✗ 无", if (nmeaLogLineCount > 0) "$nmeaLogLineCount 行" else "—")
 
         Spacer(Modifier.height(8.dp))
 

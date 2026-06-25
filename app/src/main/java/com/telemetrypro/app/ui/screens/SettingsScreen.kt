@@ -217,71 +217,80 @@ fun SettingsScreen(
             }
         }
 
-        // ---- Distance Unit ----
-        SettingsTile(
-            title = stringResource(R.string.settings_distance_unit),
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+        // ---- Distance Unit & Altitude Reference (side by side) ----
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            var selected by remember { mutableStateOf(0) }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(stringResource(R.string.settings_metric_km), stringResource(R.string.settings_imperial_mi)).forEachIndexed { i, label ->
-                    val isSelected = i == selected
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .background(
-                                if (isSelected) PrimaryContainer.copy(alpha = 0.2f) else SurfaceContainerHigh,
-                                RoundedCornerShape(8.dp)
+            // Distance Unit (left)
+            SettingsTile(
+                title = stringResource(R.string.settings_distance_unit),
+                modifier = Modifier.weight(1f)
+            ) {
+                var selected by remember { mutableStateOf(0) }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(stringResource(R.string.settings_metric_km), stringResource(R.string.settings_imperial_mi)).forEachIndexed { i, label ->
+                        val isSelected = i == selected
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .background(
+                                    if (isSelected) PrimaryContainer.copy(alpha = 0.2f) else SurfaceContainerHigh,
+                                    RoundedCornerShape(8.dp)
+                                )
+                                .border(
+                                    1.dp,
+                                    if (isSelected) PrimaryFixedDim else OutlineVariant,
+                                    RoundedCornerShape(8.dp)
+                                )
+                                .clickable { selected = i }
+                                .padding(vertical = 10.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                label,
+                                style = TelemetryMd,
+                                color = if (isSelected) PrimaryFixedDim else OnSurfaceVariant
                             )
-                            .border(
-                                1.dp,
-                                if (isSelected) PrimaryFixedDim else OutlineVariant,
-                                RoundedCornerShape(8.dp)
-                            )
-                            .clickable { selected = i }
-                            .padding(12.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            label,
-                            style = TelemetryMd,
-                            color = if (isSelected) PrimaryFixedDim else OnSurfaceVariant
-                        )
+                        }
                     }
                 }
             }
-        }
 
-        // ---- Speed Unit ----
-        SettingsTile(
-            title = stringResource(R.string.settings_velocity_unit),
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-        ) {
-            var selected by remember { mutableStateOf(0) }
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf("KM/H", "KNOTS", "MPH").forEachIndexed { i, label ->
-                    val isSelected = i == selected
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .background(
-                                if (isSelected) PrimaryContainer.copy(alpha = 0.2f) else SurfaceContainerHigh,
-                                RoundedCornerShape(8.dp)
+            // Altitude Reference (right)
+            SettingsTile(
+                title = stringResource(R.string.settings_altitude_ref),
+                subtitle = stringResource(R.string.settings_altitude_msl),
+                modifier = Modifier.weight(1f)
+            ) {
+                var selected by remember { mutableStateOf(0) }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("m", "ft").forEachIndexed { i, label ->
+                        val isSelected = i == selected
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .background(
+                                    if (isSelected) PrimaryContainer else Color.Transparent,
+                                    RoundedCornerShape(8.dp)
+                                )
+                                .border(
+                                    1.dp,
+                                    if (isSelected) PrimaryFixedDim else OutlineVariant,
+                                    RoundedCornerShape(8.dp)
+                                )
+                                .clickable { selected = i }
+                                .padding(vertical = 10.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                label,
+                                style = TelemetryMd,
+                                color = if (isSelected) OnPrimary else OnSurfaceVariant
                             )
-                            .border(
-                                1.dp,
-                                if (isSelected) PrimaryFixedDim else OutlineVariant,
-                                RoundedCornerShape(8.dp)
-                            )
-                            .clickable { selected = i }
-                            .padding(horizontal = 8.dp, vertical = 12.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            label,
-                            style = LabelCaps,
-                            color = if (isSelected) PrimaryFixedDim else OnSurfaceVariant
-                        )
+                        }
                     }
                 }
             }
@@ -321,20 +330,20 @@ fun SettingsScreen(
             }
         }
 
-        // ---- Altitude Unit ----
+        // ---- Speed Unit ----
         SettingsTile(
-            title = stringResource(R.string.settings_altitude_ref),
-            subtitle = stringResource(R.string.settings_altitude_msl),
+            title = stringResource(R.string.settings_velocity_unit),
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
         ) {
             var selected by remember { mutableStateOf(0) }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("m", "ft").forEachIndexed { i, label ->
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf("KM/H", "KNOTS", "MPH").forEachIndexed { i, label ->
                     val isSelected = i == selected
                     Box(
                         modifier = Modifier
+                            .weight(1f)
                             .background(
-                                if (isSelected) PrimaryContainer else Color.Transparent,
+                                if (isSelected) PrimaryContainer.copy(alpha = 0.2f) else SurfaceContainerHigh,
                                 RoundedCornerShape(8.dp)
                             )
                             .border(
@@ -343,13 +352,13 @@ fun SettingsScreen(
                                 RoundedCornerShape(8.dp)
                             )
                             .clickable { selected = i }
-                            .size(48.dp, 40.dp),
+                            .padding(horizontal = 8.dp, vertical = 12.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             label,
-                            style = TelemetryMd,
-                            color = if (isSelected) OnPrimary else OnSurfaceVariant
+                            style = LabelCaps,
+                            color = if (isSelected) PrimaryFixedDim else OnSurfaceVariant
                         )
                     }
                 }
