@@ -91,7 +91,7 @@ fun RecordScreen(
         ) {
             Column {
                 Text(
-                    if (isZh) "测距记录" else "DISTANCE TRACKING",
+                    if (isZh) "轨迹记录" else "TRACK RECORDING",
                     style = LabelCaps,
                     color = OnSurfaceVariant
                 )

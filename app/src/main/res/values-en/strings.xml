@@ -128,7 +128,7 @@
     <string name="lang_changed">Language changed, restart to apply</string>
 
     <!-- Recording -->
-    <string name="recording_title">DISTANCE TRACKING</string>
+    <string name="recording_title">TRACK RECORDING</string>
     <string name="recording_start">▶ START</string>
     <string name="recording_stop">■ STOP</string>
     <string name="recording_recording">● RECORDING</string>

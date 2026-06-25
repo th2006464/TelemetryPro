@@ -129,7 +129,7 @@
     <string name="lang_changed">语言已切换，请重启应用</string>
 
     <!-- Recording -->
-    <string name="recording_title">测距记录</string>
+    <string name="recording_title">轨迹记录</string>
     <string name="recording_start">▶ 开始</string>
     <string name="recording_stop">■ 停止</string>
     <string name="recording_recording">● 记录中</string>
@@ -137,7 +137,7 @@
     <string name="recording_default_name">记录 #%d</string>
     <string name="recording_label">记录中</string>
     <string name="recording_history">历史记录</string>
-    <string name="recording_empty">暂无记录，点击上方开始测距</string>
+    <string name="recording_empty">暂无记录，点击上方开始记录</string>
     <string name="recording_col_time">时间</string>
     <string name="recording_col_lat">纬度</string>
     <string name="recording_col_lng">经度</string>

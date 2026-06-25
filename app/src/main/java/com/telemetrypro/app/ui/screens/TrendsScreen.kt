@@ -54,7 +54,7 @@ fun TrendsScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(IntrinsicSize.Max)
+                .height(190.dp)
                 .padding(horizontal = 16.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -62,12 +62,13 @@ fun TrendsScreen(
             Box(
                 modifier = Modifier
                     .weight(0.4f)
+                    .fillMaxHeight()
                     .background(TileBackground, RoundedCornerShape(12.dp))
                     .border(1.dp, TileBorder, RoundedCornerShape(12.dp))
             ) {
                 SpeedCircle(
                     speedKmh = state.speedKmh,
-                    modifier = Modifier.padding(8.dp)
+                    modifier = Modifier.padding(4.dp)
                 )
                 Text(
                     text = stringResource(R.string.trends_velocity_profile),
@@ -501,9 +502,9 @@ private fun VsiCard(
             )
 
             drawLine(
-                color = OnSurfaceVariant,
-                start = Offset(0f, ch / 2f),
-                end = Offset(cw, ch / 2f),
+                color = OnSurfaceVariant.copy(alpha = 0.3f),
+                start = Offset(barX, ch / 2f),
+                end = Offset(barX + barW, ch / 2f),
                 strokeWidth = 1f
             )
         }
@@ -512,7 +513,7 @@ private fun VsiCard(
             "+2.4",
             style = TelemetryMd,
             color = Secondary,
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 28.dp)
+            modifier = Modifier.align(Alignment.Center).padding(bottom = 22.dp)
         )
     }
 }
