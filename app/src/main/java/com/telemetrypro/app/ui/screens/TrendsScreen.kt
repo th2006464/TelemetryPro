@@ -28,7 +28,6 @@ import com.telemetrypro.app.ui.components.NmeaFeed
 import com.telemetrypro.app.ui.components.TopAppBar
 import com.telemetrypro.app.ui.theme.*
 import kotlin.math.min as mathMin
-import kotlinx.coroutines.delay
 
 @Composable
 fun TrendsScreen(
@@ -39,26 +38,24 @@ fun TrendsScreen(
     modifier: Modifier = Modifier
 ) {
     // Cold-start crash protection:
-    // Freeze a snapshot of state on first composition. During the critical
-    // first-frame window, GNSS/location callbacks (~1Hz) keep replacing
-    // the state reference, which forces Compose to re-enter TrendsScreen
-    // before it finishes measuring/layoutting its 7 cards + 4 Canvases.
-    // By holding a frozen snapshot for one frame, we guarantee the first
-    // composition completes successfully. After that, Compose's diffing
-    // engine handles incremental updates efficiently.
-    val frozenSnapshot = remember { mutableStateOf<LocationState?>(null) }
-    val ready = remember { mutableStateOf(false) }
+    // The state parameter changes at ~1Hz because location/GNSS callbacks
+    // keep updating _locationState even during the first composition frame.
+    // If a new state arrives before TrendsScreen finishes measuring/layouting
+    // its 7 cards + 4 Canvases, Compose restarts → backpressure → ANR → crash.
+    //
+    // Fix: snapshot state synchronously on first composition (remember{} =
+    // captured before children compose). Use SideEffect to unfreeze only
+    // AFTER the first frame commits successfully. SideEffect guarantees the
+    // frame has been drawn before switching to live state.
+    val snapshot = remember { mutableStateOf(state) }
+    var freeze by remember { mutableStateOf(true) }
 
-    // Capture snapshot on first entry
-    LaunchedEffect(Unit) {
-        frozenSnapshot.value = state
-        // Yield to allow first composition with frozen data
-        delay(1)
-        ready.value = true
+    if (freeze) {
+        SideEffect { freeze = false }
     }
 
-    // Use frozen snapshot until ready; then follow live state
-    val displayState = if (ready.value) state else (frozenSnapshot.value ?: state)
+    // Frozen snapshot for first frame; live state for subsequent frames
+    val displayState = if (freeze) snapshot.value else state
 
     Column(
         modifier = modifier
