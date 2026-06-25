@@ -263,7 +263,6 @@ fun SettingsScreen(
             // Altitude Reference (right)
             SettingsTile(
                 title = stringResource(R.string.settings_altitude_ref),
-                subtitle = stringResource(R.string.settings_altitude_msl),
                 modifier = Modifier.weight(1f)
             ) {
                 var selected by remember { mutableStateOf(0) }

@@ -470,51 +470,21 @@ private fun VsiCard(
             .background(TileBackground, RoundedCornerShape(12.dp))
             .border(1.dp, TileBorder, RoundedCornerShape(12.dp))
     ) {
-        Text(
-            stringResource(R.string.trends_vsi),
-            style = LabelCaps,
-            color = OnSurfaceVariant,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 8.dp)
-        )
-
-        Canvas(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(top = 28.dp, bottom = 12.dp, start = 8.dp, end = 8.dp)
+        Column(
+            modifier = Modifier.align(Alignment.Center),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            val cw: Float = size.width
-            val ch: Float = size.height
-            val barW: Float = cw * 0.25f
-            val barX: Float = (cw - barW) / 2f
-
-            drawRoundRect(
-                color = SurfaceContainerHighest,
-                topLeft = Offset(barX, 0f),
-                size = Size(barW, ch)
+            Text(
+                stringResource(R.string.trends_vsi),
+                style = LabelCaps,
+                color = OnSurfaceVariant
             )
-
-            drawRoundRect(
-                color = Secondary.copy(alpha = 0.6f),
-                topLeft = Offset(barX, ch * 0.6f),
-                size = Size(barW, ch * 0.25f)
-            )
-
-            drawLine(
-                color = OnSurfaceVariant.copy(alpha = 0.3f),
-                start = Offset(barX, ch / 2f),
-                end = Offset(barX + barW, ch / 2f),
-                strokeWidth = 1f
+            Text(
+                "+2.4",
+                style = TelemetryMd,
+                color = Secondary
             )
         }
-
-        Text(
-            "+2.4",
-            style = TelemetryMd,
-            color = Secondary,
-            modifier = Modifier.align(Alignment.Center).padding(bottom = 22.dp)
-        )
     }
 }
 
