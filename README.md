@@ -1005,6 +1005,18 @@ UI Screens
 ### Changelog
 
 
+
+#### v1.7.6 (2026-06-25)
+
+- **澳大利亚/东南亚地图修复**: 修复 WorldMapGrid 中澳大利亚大陆缺失、南大洋虚假陆地的 bug，悉尼/墨尔本/珀斯/达尔文等城市现正确显示为陆地
+- **地图最大缩放提升**: 从 10x 提升至 30x，初始缩放从 3x 提升至 5x，点阵加密最高支持 6×6 子网格
+- **地图点阵更进一步加密**: 缩放 ≥6x 时 4×4 子网格，≥12x 时 6×6 子网格
+
+#### v1.7.6 (2026-06-25)
+
+- **Australia/SE Asia grid fix**: Fixed WorldMapGrid bitmap — Australia continent added, phantom Southern Ocean landmass removed. Sydney/Melbourne/Perth/Darwin now correctly shown as land
+- **Map max zoom**: Increased from 10x to 30x, initial scale from 3x to 5x. Dot density up to 6x6 sub-grid at highest zoom
+
 #### v1.7.5 (2026-06-25)
 
 - **星座面板优化**: 每个星座系统前添加国旗 Emoji 标识（🇺🇸 GPS、🇷🇺 GLONASS、🇨🇳 北斗等），文字缩小为 CodeSm，布局更紧凑
