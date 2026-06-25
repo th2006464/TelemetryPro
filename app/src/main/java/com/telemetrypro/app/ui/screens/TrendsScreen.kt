@@ -50,34 +50,56 @@ fun TrendsScreen(
 
         Spacer(Modifier.height(8.dp))
 
-        SpeedometerCard(
-            speedKmh = state.speedKmh,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 4.dp)
-        )
-
-        Spacer(Modifier.height(4.dp))
-
-        AltitudeTrendCard(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 2.dp)
-        )
-
+        // Integrated: Left speed circle + Right VSI & altitude
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 2.dp),
+                .height(IntrinsicSize.Max)
+                .padding(horizontal = 16.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            VsiCard(modifier = Modifier.weight(0.35f))
-            TerrainCard(
-                altitude = state.altitudeMeters,
-                latitude = state.latitude,
-                longitude = state.longitude,
-                modifier = Modifier.weight(0.65f)
-            )
+            // Left: Speedometer (compact)
+            Box(
+                modifier = Modifier
+                    .weight(0.4f)
+                    .background(TileBackground, RoundedCornerShape(12.dp))
+                    .border(1.dp, TileBorder, RoundedCornerShape(12.dp))
+            ) {
+                SpeedCircle(
+                    speedKmh = state.speedKmh,
+                    modifier = Modifier.padding(8.dp)
+                )
+                Text(
+                    text = stringResource(R.string.trends_velocity_profile),
+                    style = LabelCaps,
+                    color = OnSurfaceVariant,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(8.dp)
+                )
+            }
+
+            // Right: VSI gauge + Altitude info
+            Column(
+                modifier = Modifier
+                    .weight(0.6f)
+                    .fillMaxHeight(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                VsiCard(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                )
+                TerrainSummary(
+                    altitude = state.altitudeMeters,
+                    latitude = state.latitude,
+                    longitude = state.longitude,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                )
+            }
         }
 
         // Location source info panel
@@ -349,7 +371,7 @@ private fun CapabilityRow(
 }
 
 @Composable
-private fun SpeedometerCard(
+private fun SpeedCircle(
     speedKmh: Float,
     modifier: Modifier = Modifier
 ) {
@@ -361,16 +383,11 @@ private fun SpeedometerCard(
         label = "speed_ratio"
     )
 
-    Box(
-        modifier = modifier
-            .background(TileBackground, RoundedCornerShape(12.dp))
-            .border(1.dp, TileBorder, RoundedCornerShape(12.dp))
-            .aspectRatio(2.5f)
-    ) {
-        Canvas(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+    Box(modifier = modifier.fillMaxSize()) {
+        Canvas(modifier = Modifier.fillMaxSize().padding(top = 32.dp, bottom = 8.dp, start = 8.dp, end = 8.dp)) {
             val cx: Float = size.width / 2f
-            val cy: Float = size.height * 0.55f
-            val radius: Float = mathMin(cx, cy) * 0.75f
+            val cy: Float = size.height * 0.6f
+            val radius: Float = mathMin(cx, cy) * 0.7f
             val arcSize = Size(radius * 2f, radius * 2f)
             val arcOffset = Offset(cx - radius, cy - radius)
 
@@ -381,7 +398,7 @@ private fun SpeedometerCard(
                 useCenter = false,
                 topLeft = arcOffset,
                 size = arcSize,
-                style = Stroke(width = 16f)
+                style = Stroke(width = 12f)
             )
 
             drawArc(
@@ -391,7 +408,7 @@ private fun SpeedometerCard(
                 useCenter = false,
                 topLeft = arcOffset,
                 size = arcSize,
-                style = Stroke(width = 16f)
+                style = Stroke(width = 12f)
             )
         }
 
@@ -410,80 +427,36 @@ private fun SpeedometerCard(
                 color = OnSurfaceVariant
             )
         }
-
-        Text(
-            text = stringResource(R.string.trends_velocity_profile),
-            style = LabelCaps,
-            color = OnSurfaceVariant,
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(12.dp)
-        )
     }
 }
 
 @Composable
-private fun AltitudeTrendCard(
+private fun TerrainSummary(
+    altitude: Double,
+    latitude: Double,
+    longitude: Double,
     modifier: Modifier = Modifier
 ) {
     Box(
         modifier = modifier
             .background(TileBackground, RoundedCornerShape(12.dp))
             .border(1.dp, TileBorder, RoundedCornerShape(12.dp))
-            .aspectRatio(2f)
     ) {
-        Canvas(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-            val w: Float = size.width
-            val h: Float = size.height * 0.7f
-            val topY: Float = size.height * 0.15f
-
-            for (i in 0..4) {
-                val y: Float = topY + h * i / 4f
-                drawLine(
-                    color = OutlineVariant.copy(alpha = 0.1f),
-                    start = Offset(0f, y),
-                    end = Offset(w, y),
-                    strokeWidth = 1f
-                )
-            }
-
-            val path = Path().apply {
-                moveTo(0f, topY + h * 0.6f)
-                val points = listOf(0.6f, 0.55f, 0.5f, 0.45f, 0.4f, 0.3f, 0.35f, 0.25f, 0.2f, 0.15f)
-                points.forEachIndexed { i, p ->
-                    val x: Float = w * (i + 1) / points.size.toFloat()
-                    lineTo(x, topY + h * p)
-                }
-            }
-            drawPath(path = path, color = PrimaryFixedDim, style = Stroke(width = 2f))
-
-            val fillPath = Path().apply {
-                addPath(path)
-                lineTo(w, topY + h)
-                lineTo(0f, topY + h)
-                close()
-            }
-            drawPath(
-                path = fillPath,
-                brush = Brush.verticalGradient(
-                    colors = listOf(
-                        PrimaryFixedDim.copy(alpha = 0.2f),
-                        PrimaryFixedDim.copy(alpha = 0f)
-                    ),
-                    startY = topY,
-                    endY = topY + h
-                )
+        Column(
+            modifier = Modifier.align(Alignment.Center).padding(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                stringResource(R.string.trends_alt_label).replace("%d", altitude.toInt().toString()),
+                style = TelemetryMd,
+                color = OnSurfaceVariant
+            )
+            Text(
+                String.format("%.4f, %.4f", latitude, longitude),
+                style = CodeSm,
+                color = OnSurfaceVariant.copy(alpha = 0.55f)
             )
         }
-
-        Text(
-            stringResource(R.string.trends_altitude_trend),
-            style = LabelCaps,
-            color = OnSurfaceVariant,
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(12.dp)
-        )
     }
 }
 
@@ -495,7 +468,6 @@ private fun VsiCard(
         modifier = modifier
             .background(TileBackground, RoundedCornerShape(12.dp))
             .border(1.dp, TileBorder, RoundedCornerShape(12.dp))
-            .aspectRatio(0.8f)
     ) {
         Text(
             stringResource(R.string.trends_vsi),
@@ -556,32 +528,7 @@ private fun TerrainCard(
         modifier = modifier
             .background(TileBackground, RoundedCornerShape(12.dp))
             .border(1.dp, TileBorder, RoundedCornerShape(12.dp))
-            .aspectRatio(1.6f)
     ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val step = 40f
-            var x: Float = 0f
-            while (x < size.width) {
-                drawLine(
-                    color = OutlineVariant.copy(alpha = 0.08f),
-                    start = Offset(x, 0f),
-                    end = Offset(x, size.height),
-                    strokeWidth = 1f
-                )
-                x += step
-            }
-            var y: Float = 0f
-            while (y < size.height) {
-                drawLine(
-                    color = OutlineVariant.copy(alpha = 0.08f),
-                    start = Offset(0f, y),
-                    end = Offset(size.width, y),
-                    strokeWidth = 1f
-                )
-                y += step
-            }
-        }
-
         Column(
             modifier = Modifier.align(Alignment.BottomStart).padding(12.dp)
         ) {
