@@ -301,28 +301,36 @@ fun SettingsScreen(
             title = stringResource(R.string.settings_coord_system),
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
         ) {
+            var selectedSystem by remember { mutableIntStateOf(0) }
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 val systems = listOf(
-                    Triple(stringResource(R.string.settings_crs_dd), stringResource(R.string.settings_crs_dd_example), true),
-                    Triple(stringResource(R.string.settings_crs_dms), stringResource(R.string.settings_crs_dms_example), false),
-                    Triple(stringResource(R.string.settings_crs_utm), stringResource(R.string.settings_crs_utm_example), false)
+                    Triple(stringResource(R.string.settings_crs_dd), stringResource(R.string.settings_crs_dd_example), 0),
+                    Triple(stringResource(R.string.settings_crs_dms), stringResource(R.string.settings_crs_dms_example), 1),
+                    Triple(stringResource(R.string.settings_crs_utm), stringResource(R.string.settings_crs_utm_example), -1)
                 )
-                systems.forEach { (name, example, enabled) ->
+                systems.forEach { (name, example, idx) ->
+                    val isSelected = idx >= 0 && idx == selectedSystem
+                    val isEnabled = idx >= 0
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .background(
-                                if (enabled) SurfaceContainerLowest else SurfaceContainerHigh,
+                                if (isSelected) PrimaryContainer.copy(alpha = 0.2f) else SurfaceContainerHigh,
+                                RoundedCornerShape(8.dp)
+                            )
+                            .border(
+                                1.dp,
+                                if (isSelected) PrimaryFixedDim else OutlineVariant,
                                 RoundedCornerShape(8.dp)
                             )
                             .then(
-                                if (enabled) Modifier.border(2.dp, PrimaryFixedDim, RoundedCornerShape(8.dp))
+                                if (isEnabled) Modifier.clickable { selectedSystem = idx }
                                 else Modifier.alpha(0.5f)
                             )
                             .padding(12.dp)
                     ) {
                         Column {
-                            Text(name, style = TelemetryMd, color = if (enabled) PrimaryFixedDim else OnSurfaceVariant)
+                            Text(name, style = TelemetryMd, color = if (isSelected) PrimaryFixedDim else OnSurfaceVariant)
                             Text(example, style = CodeSm, color = OnSurfaceVariant.copy(alpha = 0.6f))
                         }
                     }
