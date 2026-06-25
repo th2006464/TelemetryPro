@@ -24,7 +24,6 @@ import androidx.compose.ui.unit.dp
 import com.telemetrypro.app.R
 import com.telemetrypro.app.data.LocationState
 import com.telemetrypro.app.data.NetworkCellInfoProvider
-import com.telemetrypro.app.ui.components.NmeaFeed
 import com.telemetrypro.app.ui.components.TopAppBar
 import com.telemetrypro.app.ui.theme.*
 import kotlin.math.min as mathMin
@@ -58,16 +57,18 @@ fun TrendsScreen(
                 .padding(horizontal = 16.dp, vertical = 4.dp)
         )
 
+        Spacer(Modifier.height(4.dp))
+
         AltitudeTrendCard(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 4.dp)
+                .padding(horizontal = 16.dp, vertical = 2.dp)
         )
 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 4.dp),
+                .padding(horizontal = 16.dp, vertical = 2.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             VsiCard(modifier = Modifier.weight(0.35f))
@@ -78,11 +79,6 @@ fun TrendsScreen(
                 modifier = Modifier.weight(0.65f)
             )
         }
-
-        NmeaFeed(
-            lines = state.nmeaLogLines,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-        )
 
         // Location source info panel
         // Pass individual fields (not the whole state) so Compose can skip this
@@ -369,7 +365,7 @@ private fun SpeedometerCard(
         modifier = modifier
             .background(TileBackground, RoundedCornerShape(12.dp))
             .border(1.dp, TileBorder, RoundedCornerShape(12.dp))
-            .aspectRatio(1.5f)
+            .aspectRatio(2.5f)
     ) {
         Canvas(modifier = Modifier.fillMaxSize().padding(16.dp)) {
             val cx: Float = size.width / 2f
@@ -499,7 +495,7 @@ private fun VsiCard(
         modifier = modifier
             .background(TileBackground, RoundedCornerShape(12.dp))
             .border(1.dp, TileBorder, RoundedCornerShape(12.dp))
-            .aspectRatio(0.6f)
+            .aspectRatio(0.8f)
     ) {
         Text(
             stringResource(R.string.trends_vsi),
@@ -560,7 +556,7 @@ private fun TerrainCard(
         modifier = modifier
             .background(TileBackground, RoundedCornerShape(12.dp))
             .border(1.dp, TileBorder, RoundedCornerShape(12.dp))
-            .aspectRatio(1.2f)
+            .aspectRatio(1.6f)
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val step = 40f

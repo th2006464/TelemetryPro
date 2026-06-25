@@ -27,6 +27,7 @@ import com.telemetrypro.app.LocaleHelper
 import com.telemetrypro.app.data.LocationState
 import com.telemetrypro.app.data.TrackSession
 import com.telemetrypro.app.data.TrackPoint
+import com.telemetrypro.app.ui.components.NmeaFeed
 import com.telemetrypro.app.ui.theme.*
 import kotlin.math.*
 
@@ -53,6 +54,30 @@ fun RecordScreen(
             .background(Background)
             .verticalScroll(rememberScrollState())
     ) {
+        Spacer(Modifier.height(8.dp))
+
+        // NMEA raw data stream — moved from TrendsScreen
+        NmeaFeed(
+            lines = state.nmeaLogLines,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+        )
+
+        // NMEA explanation card
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp)
+                .background(PrimaryContainer.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
+                .border(1.dp, PrimaryContainer.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                .padding(12.dp)
+        ) {
+            Text(
+                "NMEA 0183 是 GNSS 接收器输出的标准数据协议。每行以 \$ 开头，包含定位、卫星、时间等原始信息。例如 \$GPGGA 包含经纬度、海拔、卫星数；\$GPVTG 包含地面速度和方向。本应用通过系统 NMEA 监听器实时捕获这些数据用于分析。",
+                style = CodeSm,
+                color = OnSurfaceVariant.copy(alpha = 0.7f)
+            )
+        }
+
         Spacer(Modifier.height(8.dp))
 
         // Recording control card
