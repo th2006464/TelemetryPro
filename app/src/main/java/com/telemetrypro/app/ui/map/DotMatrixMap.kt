@@ -41,6 +41,10 @@ fun DotMatrixMap(
     onFullscreenClick: (() -> Unit)? = null,
     isFullscreen: Boolean = false
 ) {
+    val gridWidth = WorldMapGrid.GRID_W
+    val gridHeight = WorldMapGrid.GRID_H
+    val worldAspect = gridWidth.toFloat() / gridHeight.toFloat()
+
     var scale by remember { mutableStateOf(5.0f) }
     var offsetX by remember { mutableStateOf(0f) }
     var offsetY by remember { mutableStateOf(0f) }
@@ -90,7 +94,6 @@ fun DotMatrixMap(
                             val newScale = (oldScale * zoom).coerceIn(0.5f, 30f)
                             val actualZoom = newScale / oldScale
 
-                            val worldAspect = 126f / 60f
                             val cw = size.width.toFloat()
                             val ch = size.height.toFloat()
                             val canvasAspect = cw / ch
@@ -123,18 +126,6 @@ fun DotMatrixMap(
                 if (canvasW <= 0f || canvasH <= 0f) return@Canvas
 
                 try {
-                    // ---- Mercator projection constants ----
-                    val maxLatRad = (85.0 * Math.PI / 180.0).toFloat()
-                    val mercMax = ln(tan(Math.PI.toFloat() / 4f + maxLatRad / 2f))
-
-                    fun mercatorY(latDeg: Double): Float {
-                        val latRad = (latDeg * Math.PI / 180.0).toFloat().coerceIn(-maxLatRad, maxLatRad)
-                        val yMerc = ln(tan(Math.PI.toFloat() / 4f + latRad / 2f))
-                        return (60f * (1f - yMerc / mercMax) / 2f)
-                    }
-
-                    // ---- Fixed aspect ratio: maintain 126:60 proportions, letterbox extra ----
-                    val worldAspect = 126f / 60f
                     val canvasAspect = canvasW / canvasH
 
                     val mapW: Float
@@ -150,8 +141,8 @@ fun DotMatrixMap(
 
                     val mapLeft = (canvasW - mapW) / 2f
                     val mapTop = (canvasH - mapH) / 2f
-                    val cellW = mapW / 126f
-                    val cellH = mapH / 60f
+                    val cellW = mapW / gridWidth
+                    val cellH = mapH / gridHeight
 
                     // ---- Initialize offset to center on GPS position (or China fallback) ----
                     val shouldCenter = !initialized ||
@@ -166,8 +157,8 @@ fun DotMatrixMap(
                             cLat = 35.0   // China center fallback
                             cLng = 105.0
                         }
-                        val cGx = ((cLng + 180.0) / 360.0 * 126.0).toFloat()
-                        val cGy = mercatorY(cLat)
+                        val cGx = WorldMapProjection.longitudeToGridX(cLng, gridWidth)
+                        val cGy = WorldMapProjection.mercatorY(cLat, gridHeight)
                         offsetX = canvasW / 2f - mapLeft - cGx * cellW
                         offsetY = canvasH / 2f - mapTop - cGy * cellH
                         initialized = true
@@ -179,14 +170,14 @@ fun DotMatrixMap(
                     val gridStartY = mapTop + offsetY
 
                     // ---- Visible grid bounds ----
-                    val colStart = max(0, ((-gridStartX / cellW).toInt() - 1).coerceIn(0, 125))
-                    val colEnd = min(125, ((canvasW - gridStartX) / cellW).toInt() + 1)
-                    val rowStart = max(0, ((-gridStartY / cellH).toInt() - 1).coerceIn(0, 59))
-                    val rowEnd = min(59, ((canvasH - gridStartY) / cellH).toInt() + 1)
+                    val colStart = max(0, ((-gridStartX / cellW).toInt() - 1).coerceIn(0, gridWidth - 1))
+                    val colEnd = min(gridWidth - 1, ((canvasW - gridStartX) / cellW).toInt() + 1)
+                    val rowStart = max(0, ((-gridStartY / cellH).toInt() - 1).coerceIn(0, gridHeight - 1))
+                    val rowEnd = min(gridHeight - 1, ((canvasH - gridStartY) / cellH).toInt() + 1)
 
                     fun latLngToCanvas(lat: Double, lng: Double): Offset {
-                        val gx = ((lng + 180.0) / 360.0 * 126.0).toFloat()
-                        val gy = mercatorY(lat)
+                        val gx = WorldMapProjection.longitudeToGridX(lng, gridWidth)
+                        val gy = WorldMapProjection.mercatorY(lat, gridHeight)
                         return Offset(
                             gridStartX + gx * cellW,
                             gridStartY + gy * cellH
@@ -253,7 +244,7 @@ fun DotMatrixMap(
 
                     // ---- City labels ----
                     if (showCities && scale >= 0.8f) {
-                        for (city in WorldMapData.majorCities) {
+                        for (city in WorldMapCities.majorCities) {
                             val pos = latLngToCanvas(city.lat.toDouble(), city.lon.toDouble())
 
                             if (pos.x in -50f..(canvasW + 50f) && pos.y in -50f..(canvasH + 50f)) {
