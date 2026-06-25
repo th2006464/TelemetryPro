@@ -376,43 +376,7 @@ private fun SpeedCircle(
     speedKmh: Float,
     modifier: Modifier = Modifier
 ) {
-    val maxSpeed = 160f
-    val ratio = (speedKmh / maxSpeed).coerceIn(0f, 1f)
-    val animatedRatio by animateFloatAsState(
-        targetValue = ratio,
-        animationSpec = tween(350),
-        label = "speed_ratio"
-    )
-
     Box(modifier = modifier.fillMaxSize()) {
-        Canvas(modifier = Modifier.fillMaxSize().padding(top = 32.dp, bottom = 8.dp, start = 8.dp, end = 8.dp)) {
-            val cx: Float = size.width / 2f
-            val cy: Float = size.height * 0.6f
-            val radius: Float = mathMin(cx, cy) * 0.7f
-            val arcSize = Size(radius * 2f, radius * 2f)
-            val arcOffset = Offset(cx - radius, cy - radius)
-
-            drawArc(
-                color = SurfaceContainerHighest,
-                startAngle = 135f,
-                sweepAngle = 270f,
-                useCenter = false,
-                topLeft = arcOffset,
-                size = arcSize,
-                style = Stroke(width = 12f)
-            )
-
-            drawArc(
-                color = PrimaryFixedDim,
-                startAngle = 135f,
-                sweepAngle = 270f * animatedRatio,
-                useCenter = false,
-                topLeft = arcOffset,
-                size = arcSize,
-                style = Stroke(width = 12f)
-            )
-        }
-
         Column(
             modifier = Modifier.align(Alignment.Center),
             horizontalAlignment = Alignment.CenterHorizontally
