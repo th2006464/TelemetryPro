@@ -99,9 +99,11 @@ fun DashboardScreen(
                     label = stringResource(R.string.dashboard_gnss_coords),
                     value = String.format("%.4f", state.latitude),
                     unit = if (state.latitude >= 0) "°N" else "°S",
+                    unitInline = true,
                     subLabel = String.format("%.4f", state.longitude) +
                             if (state.longitude >= 0) "°E" else "°W",
-                    modifier = Modifier.weight(1f)
+                    subLabelColor = PrimaryFixedDim,
+                    modifier = Modifier.weight(1f).fillMaxHeight()
                 )
                 ReadoutTile(
                     label = stringResource(R.string.dashboard_accuracy),
@@ -109,7 +111,7 @@ fun DashboardScreen(
                     unit = stringResource(R.string.dashboard_unit_m),
                     unitInline = true,
                     valueColor = if (state.accuracy < 10f) Secondary else OnSurfaceVariant,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f).fillMaxHeight()
                 )
             }
 
@@ -125,13 +127,13 @@ fun DashboardScreen(
                     label = stringResource(R.string.dashboard_altitude),
                     value = String.format("%.0f", state.altitudeMeters),
                     unit = stringResource(R.string.dashboard_unit_msl),
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f).fillMaxHeight()
                 )
                 ReadoutTile(
                     label = stringResource(R.string.dashboard_ground_speed),
                     value = String.format("%.1f", state.speedKmh),
                     unit = stringResource(R.string.dashboard_unit_kmh),
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f).fillMaxHeight()
                 )
             }
 
@@ -145,14 +147,14 @@ fun DashboardScreen(
                 ) {
                     ConstellationStatsCard(
                         stats = state.constellationStats,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f).fillMaxHeight()
                     )
                     ReadoutTile(
                         label = stringResource(R.string.dashboard_sat_count),
                         value = "${state.usedSatellites}/${state.totalSatellites}",
                         valueColor = Secondary,
                         compact = true,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f).fillMaxHeight()
                     )
                 }
             }

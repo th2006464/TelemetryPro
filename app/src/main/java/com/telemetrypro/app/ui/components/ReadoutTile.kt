@@ -31,6 +31,7 @@ fun ReadoutTile(
     unitInline: Boolean = false,
     compact: Boolean = false,
     valueColor: androidx.compose.ui.graphics.Color = PrimaryFixedDim,
+    subLabelColor: androidx.compose.ui.graphics.Color? = null,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -87,7 +88,7 @@ fun ReadoutTile(
                 Text(
                     text = subLabel,
                     style = CodeSm,
-                    color = OnSurfaceVariant.copy(alpha = 0.6f),
+                    color = subLabelColor ?: OnSurfaceVariant.copy(alpha = 0.6f),
                     modifier = Modifier.padding(top = 4.dp)
                 )
             }
