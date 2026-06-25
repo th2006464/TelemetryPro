@@ -100,9 +100,8 @@ fun DashboardScreen(
                     value = String.format("%.4f", state.latitude),
                     unit = if (state.latitude >= 0) "°N" else "°S",
                     unitInline = true,
-                    subLabel = String.format("%.4f", state.longitude) +
-                            if (state.longitude >= 0) "°E" else "°W",
-                    subLabelColor = PrimaryFixedDim,
+                    secondaryValue = String.format("%.4f", state.longitude),
+                    secondaryUnit = if (state.longitude >= 0) "°E" else "°W",
                     modifier = Modifier.weight(1f).fillMaxHeight()
                 )
                 ReadoutTile(

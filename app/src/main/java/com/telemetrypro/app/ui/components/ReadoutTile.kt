@@ -19,7 +19,9 @@ import com.telemetrypro.app.ui.theme.*
  * @param label uppercase label above the value (LabelCaps style)
  * @param value large data display value
  * @param unit optional unit string displayed smaller after value (below by default, inline when unitInline=true)
- * @param subLabel optional secondary line below value
+ * @param secondaryValue optional second value line rendered in the SAME style as the primary value
+ * @param secondaryUnit optional unit for the secondary value (inline, same style as primary unit)
+ * @param subLabel optional secondary line below value (small CodeSm style)
  * @param unitInline when true, unit is displayed on the same row to the right of value
  */
 @Composable
@@ -27,6 +29,8 @@ fun ReadoutTile(
     label: String,
     value: String,
     unit: String = "",
+    secondaryValue: String = "",
+    secondaryUnit: String = "",
     subLabel: String = "",
     unitInline: Boolean = false,
     compact: Boolean = false,
@@ -47,6 +51,7 @@ fun ReadoutTile(
                 color = OnSurfaceVariant,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
+            val valueStyle = if (compact) TelemetryMd else if (value.length <= 6) DisplayData else TelemetryMd
             if (unitInline && unit.isNotEmpty()) {
                 // Unit inline — value and unit on same row
                 Row(
@@ -54,7 +59,7 @@ fun ReadoutTile(
                 ) {
                     Text(
                         text = value,
-                        style = if (compact) TelemetryMd else if (value.length <= 6) DisplayData else TelemetryMd,
+                        style = valueStyle,
                         color = valueColor,
                         fontWeight = FontWeight.Bold
                     )
@@ -71,7 +76,7 @@ fun ReadoutTile(
                         append(value)
                         if (unit.isNotEmpty()) append(" ")
                     },
-                    style = if (compact) TelemetryMd else if (value.length <= 6) DisplayData else TelemetryMd,
+                    style = valueStyle,
                     color = valueColor,
                     fontWeight = FontWeight.Bold
                 )
@@ -82,6 +87,28 @@ fun ReadoutTile(
                         color = OnSurfaceVariant,
                         modifier = Modifier.padding(top = 2.dp)
                     )
+                }
+            }
+            // Secondary value line — rendered in the SAME style as the primary value+unit
+            if (secondaryValue.isNotEmpty()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(top = 4.dp)
+                ) {
+                    Text(
+                        text = secondaryValue,
+                        style = valueStyle,
+                        color = valueColor,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (secondaryUnit.isNotEmpty()) {
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = secondaryUnit,
+                            style = LabelCaps,
+                            color = OnSurfaceVariant
+                        )
+                    }
                 }
             }
             if (subLabel.isNotEmpty()) {
