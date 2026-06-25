@@ -50,7 +50,7 @@ class NetworkCellInfoProvider(private val context: Context) {
     private val _cellInfo = MutableStateFlow(CellTowerInfo())
     val cellInfo: StateFlow<CellTowerInfo> = _cellInfo.asStateFlow()
 
-    /** One-shot read of current cell tower info. Safe to call repeatedly. */
+    /** One-shot read of current cell tower info. Safe to call repeatedly. Must be called off main thread. */
     @SuppressLint("MissingPermission")
     fun refresh() {
         val tm = context.getSystemService(Context.TELEPHONY_SERVICE) as? TelephonyManager
@@ -69,8 +69,6 @@ class NetworkCellInfoProvider(private val context: Context) {
             val operator = tm.networkOperatorName ?: ""
             val networkType = mapNetworkType(tm)
             val isRoaming = try { tm.isNetworkRoaming } catch (e: Exception) { false }
-            // Signal level: TelephonyManager doesn't expose signalLevel directly on all API levels,
-            // so we derive it from RSRP later when available. Default to 0 here.
             val level = 0
 
             // allCellInfo — list of serving + neighbor cells
@@ -95,10 +93,12 @@ class NetworkCellInfoProvider(private val context: Context) {
                         }
                     }
                     is CellInfoNr -> {
-                        if (isRegistered && servingCellNr == null) {
-                            servingCellNr = info
-                        } else if (!isRegistered) {
-                            neighborCount++
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                            if (isRegistered && servingCellNr == null) {
+                                servingCellNr = info
+                            } else if (!isRegistered) {
+                                neighborCount++
+                            }
                         }
                     }
                     else -> {
@@ -112,28 +112,32 @@ class NetworkCellInfoProvider(private val context: Context) {
             var band = "—"; var rsrp = Int.MIN_VALUE; var rsrq = Int.MIN_VALUE
 
             servingCell?.let { info ->
-                val identity = info.cellIdentity as CellIdentityLte
-                val signal = info.cellSignalStrength as CellSignalStrengthLte
-                mcc = identity.mccString ?: "—"
-                mnc = identity.mncString ?: "—"
-                cellId = identity.ci.toString()
-                tac = identity.tac.toString()
-                pci = identity.pci.toString()
-                band = "EARFCN ${identity.earfcn}"
-                rsrp = signal.rsrp
-                rsrq = signal.rsrq
+                try {
+                    val identity = info.cellIdentity as CellIdentityLte
+                    val signal = info.cellSignalStrength as CellSignalStrengthLte
+                    mcc = identity.mccString ?: "—"
+                    mnc = identity.mncString ?: "—"
+                    cellId = identity.ci.toString()
+                    tac = identity.tac.toString()
+                    pci = identity.pci.toString()
+                    band = "EARFCN ${identity.earfcn}"
+                    rsrp = signal.rsrp
+                    rsrq = signal.rsrq
+                } catch (e: Exception) { }
             }
             if (servingCell == null && servingCellNr != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val identity = servingCellNr!!.cellIdentity as CellIdentityNr
-                val signal = servingCellNr!!.cellSignalStrength as CellSignalStrengthNr
-                mcc = identity.mccString ?: "—"
-                mnc = identity.mncString ?: "—"
-                cellId = identity.nci.toString()
-                tac = identity.tac.toString()
-                pci = identity.pci.toString()
-                band = "NR ARFCN ${identity.nrarfcn}"
-                rsrp = signal.ssRsrp
-                rsrq = signal.ssRsrq
+                try {
+                    val identity = servingCellNr!!.cellIdentity as CellIdentityNr
+                    val signal = servingCellNr!!.cellSignalStrength as CellSignalStrengthNr
+                    mcc = identity.mccString ?: "—"
+                    mnc = identity.mncString ?: "—"
+                    cellId = identity.nci.toString()
+                    tac = identity.tac.toString()
+                    pci = identity.pci.toString()
+                    band = "NR ARFCN ${identity.nrarfcn}"
+                    rsrp = signal.ssRsrp
+                    rsrq = signal.ssRsrq
+                } catch (e: Exception) { }
             }
 
             _cellInfo.value = CellTowerInfo(
@@ -147,7 +151,9 @@ class NetworkCellInfoProvider(private val context: Context) {
                 level = level,
                 available = true
             )
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
+            // Catch Throwable (not just Exception) to handle NoClassDefFoundError
+            // on API 26-28 where CellInfoNr/CellIdentityNr don't exist.
             Log.w("NetworkCellInfo", "refresh failed", e)
         }
     }

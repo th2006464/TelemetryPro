@@ -31,8 +31,8 @@ android {
         applicationId = "com.telemetrypro.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 23
-        versionName = "1.9.3"
+        versionCode = 24
+        versionName = "1.9.4"
 
         vectorDrawables {
             useSupportLibrary = true

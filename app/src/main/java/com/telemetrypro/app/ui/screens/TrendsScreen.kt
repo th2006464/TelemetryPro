@@ -38,8 +38,10 @@ fun TrendsScreen(
     onRefreshCellInfo: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    // Refresh cell info every 10 seconds while this screen is visible
+    // Refresh cell info periodically while this screen is visible.
+    // Small initial delay to avoid hitting TelephonyManager during cold-start UI inflation.
     LaunchedEffect(Unit) {
+        delay(500L)
         onRefreshCellInfo()
         while (true) {
             delay(10_000L)

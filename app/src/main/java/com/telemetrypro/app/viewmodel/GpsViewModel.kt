@@ -13,6 +13,7 @@ import com.telemetrypro.app.data.LocationState
 import com.telemetrypro.app.data.NetworkCellInfoProvider
 import com.telemetrypro.app.data.TrackRepository
 import com.telemetrypro.app.data.TrackSession
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class GpsViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -136,11 +138,13 @@ class GpsViewModel(application: Application) : AndroidViewModel(application) {
         repository.restart()
         // Refresh network status when user toggles online mode
         checkNetworkImmediate()
-        cellInfoProvider.refresh()
+        viewModelScope.launch { cellInfoProvider.refresh() }
     }
 
-    /** Trigger a one-shot read of cellular tower info. Caller decides frequency. */
-    fun refreshCellInfo() = cellInfoProvider.refresh()
+    /** Trigger a one-shot read of cellular tower info on background thread. */
+    fun refreshCellInfo() {
+        viewModelScope.launch(Dispatchers.IO) { cellInfoProvider.refresh() }
+    }
 
     fun setNmeaLoggingEnabled(enabled: Boolean) {
         _nmeaLoggingEnabled.value = enabled
