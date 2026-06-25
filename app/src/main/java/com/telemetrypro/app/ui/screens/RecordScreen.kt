@@ -17,6 +17,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PointMode
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -159,8 +160,8 @@ fun RecordScreen(
                                 val lastPt = state.recordingPoints.lastOrNull()
                                 if (lastPt != null) {
                                     Text(
-                                        if (isZh) "方向 ${lastPt.compassDirection} (${lastPt.bearing.toInt()}°)"
-                                        else "HDG ${lastPt.compassDirection} (${lastPt.bearing.toInt()}°)",
+                                        if (isZh) "方向 ${lastPt.compassDirection} · ${lastPt.bearing.toInt()}°"
+                                        else "HDG ${lastPt.compassShort} · ${lastPt.bearing.toInt()}°",
                                         style = CodeSm,
                                         color = Secondary
                                     )
@@ -183,81 +184,124 @@ fun RecordScreen(
                     }
                 }
 
-                // Mini path preview when recording
-                if (isRecording && state.recordingPoints.size >= 2) {
+                // Navigation-style mini radar: square, current position centered, bearing arrow
+                if (isRecording && state.recordingPoints.isNotEmpty()) {
                     Spacer(Modifier.height(12.dp))
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(160.dp)
-                            .background(SurfaceContainerLowest, RoundedCornerShape(8.dp))
-                            .border(1.dp, OutlineVariant.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Center
                     ) {
-                        Canvas(modifier = Modifier.fillMaxSize().padding(8.dp)) {
-                            val pts = state.recordingPoints
-                            if (pts.size < 2) return@Canvas
+                        Box(
+                            modifier = Modifier
+                                .size(200.dp)
+                                .background(SurfaceContainerLowest, RoundedCornerShape(8.dp))
+                                .border(1.dp, OutlineVariant.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                        ) {
+                            Canvas(modifier = Modifier.fillMaxSize().padding(4.dp)) {
+                                val pts = state.recordingPoints
+                                if (pts.isEmpty()) return@Canvas
 
-                            // Compute bounding box
-                            var minLat = Double.MAX_VALUE; var maxLat = Double.MIN_VALUE
-                            var minLng = Double.MAX_VALUE; var maxLng = Double.MIN_VALUE
-                            pts.forEach {
-                                if (it.latitude < minLat) minLat = it.latitude
-                                if (it.latitude > maxLat) maxLat = it.latitude
-                                if (it.longitude < minLng) minLng = it.longitude
-                                if (it.longitude > maxLng) maxLng = it.longitude
-                            }
-                            val latRange = (maxLat - minLat).coerceAtLeast(0.001)
-                            val lngRange = (maxLng - minLng).coerceAtLeast(0.001)
+                                val current = pts.last()
+                                val cw = size.width
+                                val ch = size.height
+                                val cx = cw / 2f
+                                val cy = ch / 2f
 
-                            // Normalize to canvas
-                            val pad = 16f
-                            val w = size.width - pad * 2
-                            val h = size.height - pad * 2
-                            fun toX(lng: Double) = pad + ((lng - minLng) / lngRange * w).toFloat()
-                            fun toY(lat: Double) = pad + h - ((lat - minLat) / latRange * h).toFloat()
-
-                            val offsets = pts.map { Offset(toX(it.longitude), toY(it.latitude)) }
-
-                            // Path line
-                            val path = Path().apply {
-                                moveTo(offsets[0].x, offsets[0].y)
-                                for (i in 1 until offsets.size) {
-                                    lineTo(offsets[i].x, offsets[i].y)
+                                // Fixed scale: show ~200m radius around current position.
+                                // meters-per-pixel adjusted by latitude (cosine correction for longitude).
+                                val latRad = Math.toRadians(current.latitude)
+                                val metersPerPixel = 0.5f  // 0.5 m/px → ~100m radius visible
+                                fun project(lat: Double, lng: Double): Offset {
+                                    val dLatM = (lat - current.latitude) * 111320.0
+                                    val dLngM = (lng - current.longitude) * 111320.0 * kotlin.math.cos(latRad)
+                                    val px = cx + (dLngM / metersPerPixel).toFloat()
+                                    val py = cy - (dLatM / metersPerPixel).toFloat()
+                                    return Offset(px, py)
                                 }
-                            }
-                            drawPath(path, Secondary.copy(alpha = 0.6f), style = Stroke(width = 2f))
 
-                            // Direction arrows
-                            val arrowInterval = when {
-                                pts.size < 20 -> 5
-                                pts.size < 100 -> 10
-                                else -> 20
-                            }
-                            for (i in offsets.indices step arrowInterval) {
-                                if (i == 0 || i >= offsets.size) continue
-                                val prev = offsets[i - 1]
-                                val curr = offsets[i]
-                                val dx = curr.x - prev.x
-                                val dy = curr.y - prev.y
-                                val len = kotlin.math.sqrt(dx * dx + dy * dy)
-                                if (len < 8f) continue
-                                val angle = kotlin.math.atan2(dy, dx)
-                                val sz = 5f
-                                val ap = Path().apply {
-                                    moveTo(curr.x, curr.y)
-                                    lineTo(curr.x - sz * kotlin.math.cos(angle - 0.4f), curr.y - sz * kotlin.math.sin(angle - 0.4f))
-                                    lineTo(curr.x - sz * kotlin.math.cos(angle + 0.4f), curr.y - sz * kotlin.math.sin(angle + 0.4f))
+                                // Range rings (50m, 100m)
+                                val ring50 = (50f / metersPerPixel)
+                                val ring100 = (100f / metersPerPixel)
+                                drawCircle(
+                                    color = OnSurfaceVariant.copy(alpha = 0.15f),
+                                    radius = ring50,
+                                    center = Offset(cx, cy),
+                                    style = Stroke(1f)
+                                )
+                                drawCircle(
+                                    color = OnSurfaceVariant.copy(alpha = 0.1f),
+                                    radius = ring100,
+                                    center = Offset(cx, cy),
+                                    style = Stroke(1f)
+                                )
+
+                                // Cross hair
+                                drawLine(OnSurfaceVariant.copy(alpha = 0.2f), Offset(0f, cy), Offset(cw, cy), 1f)
+                                drawLine(OnSurfaceVariant.copy(alpha = 0.2f), Offset(cx, 0f), Offset(cx, ch), 1f)
+
+                                // Cardinal labels (N/E/S/W) — small text
+                                val labelColor = OnSurfaceVariant.copy(alpha = 0.5f)
+                                val cardPaint = android.graphics.Paint().apply {
+                                    color = android.graphics.Color.argb(130, 208, 198, 171)
+                                    textSize = 11f
+                                    isAntiAlias = true
+                                }
+                                val canvasObj = drawContext.canvas
+                                canvasObj.nativeCanvas.drawText("N", cx - 4f, 14f, cardPaint)
+                                canvasObj.nativeCanvas.drawText("S", cx - 4f, ch - 4f, cardPaint)
+                                canvasObj.nativeCanvas.drawText("E", cw - 12f, cy + 4f, cardPaint)
+                                canvasObj.nativeCanvas.drawText("W", 4f, cy + 4f, cardPaint)
+
+                                // Draw trail (only points within visible range)
+                                val visibleOffsets = pts.map { project(it.latitude, it.longitude) }
+                                if (visibleOffsets.size >= 2) {
+                                    val path = Path().apply {
+                                        moveTo(visibleOffsets[0].x, visibleOffsets[0].y)
+                                        for (i in 1 until visibleOffsets.size) {
+                                            lineTo(visibleOffsets[i].x, visibleOffsets[i].y)
+                                        }
+                                    }
+                                    drawPath(path, Secondary.copy(alpha = 0.7f), style = Stroke(width = 2.5f))
+                                }
+
+                                // Start point marker (only if within canvas)
+                                val startPos = visibleOffsets.first()
+                                if (startPos.x in 0f..cw && startPos.y in 0f..ch) {
+                                    drawCircle(Secondary.copy(alpha = 0.3f), 8f, startPos)
+                                    drawCircle(Secondary, 4f, startPos)
+                                }
+
+                                // Current position: large bearing arrow centered
+                                val bearingRad = Math.toRadians(current.bearing.toDouble())
+                                // Arrow points "up" (north) by default, rotate by bearing clockwise.
+                                // Screen Y is down, so rotate: angle from up = bearing.
+                                val arrowLen = 24f
+                                val arrowHead = 8f
+                                // Tip of arrow (in direction of bearing)
+                                val tipX = cx + (arrowLen * kotlin.math.sin(bearingRad)).toFloat()
+                                val tipY = cy - (arrowLen * kotlin.math.cos(bearingRad)).toFloat()
+                                // Tail
+                                val tailX = cx - (arrowLen * 0.4 * kotlin.math.sin(bearingRad)).toFloat()
+                                val tailY = cy + (arrowLen * 0.4 * kotlin.math.cos(bearingRad)).toFloat()
+
+                                // Arrow shaft (thick line)
+                                drawLine(PrimaryFixedDim, Offset(tailX, tailY), Offset(tipX, tipY), 3f)
+
+                                // Arrowhead (triangle)
+                                val perpX = kotlin.math.cos(bearingRad).toFloat()
+                                val perpY = kotlin.math.sin(bearingRad).toFloat()
+                                val headPath = Path().apply {
+                                    moveTo(tipX, tipY)
+                                    lineTo(tipX - arrowHead * kotlin.math.sin(bearingRad - 0.4).toFloat(),
+                                           tipY + arrowHead * kotlin.math.cos(bearingRad - 0.4).toFloat())
+                                    lineTo(tipX - arrowHead * kotlin.math.sin(bearingRad + 0.4).toFloat(),
+                                           tipY + arrowHead * kotlin.math.cos(bearingRad + 0.4).toFloat())
                                     close()
                                 }
-                                drawPath(ap, Secondary.copy(alpha = 0.8f))
-                            }
+                                drawPath(headPath, PrimaryFixed)
 
-                            // Start/end markers
-                            if (offsets.isNotEmpty()) {
-                                drawCircle(Secondary.copy(alpha = 0.3f), 10f, offsets.first())
-                                drawCircle(Secondary, 5f, offsets.first())
-                                drawCircle(PrimaryFixedDim.copy(alpha = 0.3f), 10f, offsets.last())
-                                drawCircle(PrimaryFixedDim, 5f, offsets.last())
+                                // Center dot (current position)
+                                drawCircle(PrimaryFixedDim, 3f, Offset(cx, cy))
                             }
                         }
                     }

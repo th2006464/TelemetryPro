@@ -91,7 +91,8 @@ class GpsRepository(private val context: Context) {
 
         override fun onFirstFix(ttffMillis: Int) {
             _locationState.value = _locationState.value.copy(
-                fixStatus = GpsFixStatus.FIXED
+                fixStatus = GpsFixStatus.FIXED,
+                ttffMillis = ttffMillis.toLong()
             )
         }
 
@@ -224,6 +225,23 @@ class GpsRepository(private val context: Context) {
     // ============================================================
 
     private fun updateLocationData(location: Location) {
+        val providerName = location.provider ?: "unknown"
+        // Network provider accuracy is coarse (10-100m+); avoid overwriting a precise GPS fix
+        // with a less precise network fix. We only let NETWORK_PROVIDER update the state when
+        // there is no GPS fix yet (fixStatus != FIXED) OR when the existing fix is stale
+        // (timestamp older than 5 seconds).
+        if (providerName == LocationManager.NETWORK_PROVIDER) {
+            val current = _locationState.value
+            val now = System.currentTimeMillis()
+            val isGpsFresh = current.fixStatus == GpsFixStatus.FIXED &&
+                             (now - current.timestamp) < 5000L
+            if (isGpsFresh && current.accuracy < location.accuracy) {
+                // GPS fix is fresh and more accurate — keep it, just update provider tag for display
+                _locationState.value = current.copy(provider = current.provider)
+                return
+            }
+        }
+
         val speedKmh = location.speed * 3.6f // m/s → km/h
         val latDms = decimalToDms(location.latitude, true)
         val lngDms = decimalToDms(location.longitude, false)
@@ -235,6 +253,7 @@ class GpsRepository(private val context: Context) {
             latitude = location.latitude,
             longitude = location.longitude,
             accuracy = location.accuracy,
+            provider = providerName,
             altitude = location.altitude,
             speed = location.speed,
             bearing = if (location.hasBearing()) location.bearing else 0f,

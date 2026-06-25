@@ -30,6 +30,7 @@ data class LocationState(
     val latitude: Double = 0.0,
     val longitude: Double = 0.0,
     val accuracy: Float = 0f,   // meters
+    val provider: String = "",  // "gps" / "network" / "fused" — which provider produced this fix
 
     // Altitude
     val altitude: Double = 0.0,  // meters above WGS84 ellipsoid
@@ -40,6 +41,9 @@ data class LocationState(
 
     // Time
     val timestamp: Long = 0L,
+
+    // First fix time (ms) — time to first fix, 0 if not yet
+    val ttffMillis: Long = 0L,
 
     // Satellites
     val totalSatellites: Int = 0,

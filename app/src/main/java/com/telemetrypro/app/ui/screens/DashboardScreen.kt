@@ -111,6 +111,13 @@ fun DashboardScreen(
                     unit = stringResource(R.string.dashboard_unit_m),
                     unitInline = true,
                     valueColor = if (state.accuracy < 10f) Secondary else OnSurfaceVariant,
+                    subLabel = when {
+                        state.provider.isEmpty() -> ""
+                        state.provider == "gps" -> "GPS" + if (state.ttffMillis > 0) " · TTFF ${state.ttffMillis / 1000.0}s" else ""
+                        state.provider == "network" -> "网络辅助"
+                        state.provider == "fused" -> "Fused"
+                        else -> state.provider
+                    },
                     modifier = Modifier.weight(1f).fillMaxHeight()
                 )
             }
