@@ -1006,6 +1006,52 @@ UI Screens
 
 
 
+#### v1.8.3 (2026-06-25)
+
+- **GNSS 坐标格式统一**: 经纬度现在使用相同字号（TelemetryMd 18sp）、相同颜色（PrimaryFixedDim 黄色）、单位（°N/°E）统一为 LabelCaps 灰色并显示在数字右侧同行
+- **ReadoutTile 增强**: 新增 `secondaryValue` / `secondaryUnit` 参数，支持以与主值完全相同的样式渲染第二行数据
+
+#### v1.8.3 (2026-06-25)
+
+- **GNSS coords unified**: Latitude and longitude now share identical formatting (TelemetryMd 18sp, PrimaryFixedDim yellow). Unit labels (°N/°E) both use LabelCaps gray, displayed inline to the right of the value.
+- **ReadoutTile enhancement**: Added `secondaryValue` / `secondaryUnit` params for rendering a second value line in the same style as the primary value.
+
+#### v1.8.2 (2026-06-25)
+
+- **仪表盘面板等高**: 所有 Row 内的面板添加 `fillMaxHeight()`，同行面板自动等高对齐
+- **GNSS 坐标 °N 位置**: 从纬度数字下方移到右侧同行（`unitInline = true`）
+
+#### v1.8.2 (2026-06-25)
+
+- **Equal-height dashboard tiles**: All tiles in a Row now use `fillMaxHeight()` for automatic height alignment
+- **GNSS °N position**: Moved from below latitude value to inline right (`unitInline = true`)
+
+#### v1.8.1 (2026-06-25)
+
+- **地图拖动性能优化**: 预渲染整个点阵地图到 `ImageBitmap`（1440×720），每帧仅一次 `drawImage` GPU 调用，彻底消除拖动时的 GC 卡顿
+- **星座统计卡片精简**: 移除 SNR 长条和 avgSnr 数字，仅保留星座名 + 连接数
+- **卫星数缩小**: 从 DisplayData 48sp 改为 TelemetryMd 18sp，宽度与上方地面速度对齐
+
+#### v1.8.1 (2026-06-25)
+
+- **Map drag performance**: Pre-rendered entire dot-matrix map to `ImageBitmap` (1440×720). Each frame is now a single `drawImage` GPU call — eliminates GC pressure that caused stutter during pan/zoom.
+- **Constellation card simplified**: Removed SNR bars and avgSnr number, showing only constellation name + satellite count
+- **Sat count compact**: Reduced from DisplayData 48sp to TelemetryMd 18sp, width aligned with ground speed tile above
+
+#### v1.8.0 (2026-06-25)
+
+- **高精度点阵地图**: 网格从 360×170 升级到 720×360（0.5°/cell，~55km 精度），数据源改用 Natural Earth 50m land polygons
+- **移除南极洲**: 纬度覆盖从 ±85° 调整为 +85° ~ -60°，提高有效区域密度
+- **Base64 编码网格**: 避免 JVM MethodTooLargeException，源码从 32K+ 行压缩至 242 行
+- **自有签名**: 生成 foxtang-release keystore（RSA 2048，25 年有效期），配置 release 签名
+
+#### v1.8.0 (2026-06-25)
+
+- **High-res dot-matrix map**: Grid upgraded from 360×170 to 720×360 (0.5°/cell, ~55km precision). Data source replaced with Natural Earth 50m land polygons (1420 polygons, 60669 vertices).
+- **Antarctica removed**: Latitude coverage adjusted from ±85° to +85° ~ -60° for denser useful coverage.
+- **Base64-encoded grid**: Avoids JVM MethodTooLargeException. Source code reduced from 32K+ lines to 242 lines.
+- **Self-signed release**: Generated foxtang-release keystore (RSA 2048, 25-year validity) with proper release signing config.
+
 #### v1.7.6 (2026-06-25)
 
 - **澳大利亚/东南亚地图修复**: 修复 WorldMapGrid 中澳大利亚大陆缺失、南大洋虚假陆地的 bug，悉尼/墨尔本/珀斯/达尔文等城市现正确显示为陆地
@@ -1051,6 +1097,73 @@ UI Screens
 
 - **Fix**: Network status detection — added `ACCESS_NETWORK_STATE` permission declaration so ConnectivityManager can properly query network state. Resolves waiting for network stuck in online mode.
 - **Fix**: Removed the misleading restart GPS to apply toast when toggling network mode. The switch now takes effect automatically.
+
+### Development Lessons Learned
+
+This section documents non-trivial problems encountered during development and their solutions, to help future contributors avoid the same pitfalls.
+
+#### 1. Dot-matrix map accuracy
+
+**Problem**: The initial 360×170 grid (~1°/cell, 111km at equator) with hand-written simplified polygons produced severely distorted coastlines. Only 3-4 cells fell within a 400km range — insufficient for city-level positioning.
+
+**Solution**: Upgraded to 720×360 grid (0.5°/cell, ~55km) using Natural Earth 50m land polygons (1420 polygons, 60669 vertices). Latitude coverage trimmed to +85° ~ -60° to remove unused Antarctica.
+
+**Takeaway**: Never hand-write geographic data — use authoritative open datasets (Natural Earth, GADM). The generation script uses a 72×36 coarse spatial index, reducing point-in-polygon testing for 1420 polygons from minutes to ~12 seconds.
+
+#### 2. JVM MethodTooLargeException
+
+**Problem**: The 720×360 grid = 32,400 bytes. Written as `byteArrayOf(0.toByte(), 1.toByte(), ...)` in Kotlin source, the compiled `<clinit>` method exceeded the 64KB bytecode limit — build failed.
+
+**Solution**: Encode the bitmap as a Base64 string constant + lazy decode at runtime. Source code shrank from 32,422 lines to 242 lines.
+
+**Takeaway**: The Android compiler enforces a 64KB per-method bytecode limit. For large binary data, use Base64/String encoding with lazy decode instead of expanding `byteArrayOf(...)`.
+
+#### 3. Map drag stutter (GC pressure)
+
+**Problem**: After the precision upgrade in v1.8.0, dragging the map became noticeably stuttery. Profiler showed 40K-160K `Offset` object allocations per frame, generating ~240MB/s GC pressure at 60fps.
+
+**Root cause**: Each frame rebuilt a list of visible land cells via `buildList`, creating 1-16 `Offset` objects per cell, then called `drawPoints`.
+
+**Solution**: Pre-render the entire dot-matrix map to an `ImageBitmap` (1440×720, ~4MB) once at composition. Each frame then issues a single `drawImage` GPU call — zero per-frame allocations.
+
+**Takeaway**: Compose Canvas `drawPoints` is efficient for drawing, but building the point list allocates many temporary objects. For static/semi-static content, pre-render to `ImageBitmap` and use `drawImage` — GPU hardware-accelerated scaling, zero GC pressure.
+
+#### 4. APK signing
+
+**Problem**: The first `assembleRelease` build produced an APK that Android refused to install: "安装包未包含任何证书" (package contains no certificate).
+
+**Root cause**: The `release` build type had no `signingConfig`. All prior versions (v1.6-v1.7) used `assembleDebug`, which uses Android's default debug certificate.
+
+**Solution**: Generated a self-owned keystore via `keytool` (RSA 2048, 25-year validity), added a `signingConfigs { release { ... } }` block to `build.gradle.kts` reading from `keystore.properties`, and gitignored both the keystore and properties files.
+
+**Takeaway**:
+- Debug signing is for development only — production releases need a self-owned keystore.
+- The keystore is the app's identity credential. **If lost, you cannot publish updates** (users can't overwrite-install). Back it up securely.
+- Never hardcode signing passwords in `build.gradle.kts` — use a separate `keystore.properties` file with gitignore.
+
+#### 5. Gradle Kotlin DSL imports
+
+**Problem**: Using `java.util.Properties()` in `build.gradle.kts` threw `Unresolved reference: util`.
+
+**Solution**: Kotlin DSL does not auto-import `java.util` — add an explicit `import java.util.Properties` at the top of the file.
+
+**Takeaway**: Gradle Kotlin DSL has far fewer implicit imports than Groovy DSL. On `Unresolved reference`, check whether an explicit import is needed first.
+
+#### 6. Dashboard layout consistency
+
+**Problem**: In the GNSS coordinates tile, latitude used the `value` param (TelemetryMd 18sp, yellow) while longitude used `subLabel` (CodeSm 12sp, gray) — resulting in mismatched font size, color, and unit placement between lat and lon.
+
+**Solution**: Added `secondaryValue` / `secondaryUnit` params to `ReadoutTile`, rendering the longitude as a second row in the exact same style as the primary value.
+
+**Takeaway**: "Secondary data" ≠ "smaller data". When two values are semantically equal (e.g., latitude vs longitude), render them with identical styling rather than reusing a semantically different `subLabel`.
+
+#### 7. Equal-height tiles in a Row
+
+**Problem**: `ReadoutTile`s in the same `Row` had different heights because their content had different line counts.
+
+**Solution**: Add `.fillMaxHeight()` to each tile's modifier — tiles in the same Row auto-align to the tallest.
+
+**Takeaway**: Compose `Row` does not stretch children to equal height by default (unlike CSS Flexbox `align-items: stretch`). Explicit `fillMaxHeight()` is required.
 
 ### Permissions
 
