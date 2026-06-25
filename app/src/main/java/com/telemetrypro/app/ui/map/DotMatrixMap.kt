@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.Canvas as GraphicsCanvas
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
@@ -21,6 +22,8 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.telemetrypro.app.R
@@ -54,6 +57,36 @@ fun DotMatrixMap(
     val pulseRadius = 6f
     val pulseAlpha = 0.35f
     val textMeasurer = rememberTextMeasurer()
+
+    // Pre-render land dots to an ImageBitmap (created once, drawn every frame as a single GPU call).
+    // This eliminates per-frame allocation of 40K-160K Offset objects that caused GC pressure during drag.
+    val dotColor = OnSurfaceVariant.copy(alpha = 0.5f)
+    val mapBitmap = remember(gridWidth, gridHeight, dotColor) {
+        val scaleFactor = 2  // each grid cell = 2x2 pixels in the bitmap
+        val w = gridWidth * scaleFactor
+        val h = gridHeight * scaleFactor
+        val bmp = ImageBitmap(w, h)
+        val canvas = GraphicsCanvas(bmp)
+        val paint = Paint().apply {
+            color = dotColor
+            isAntiAlias = true
+        }
+        for (y in 0 until gridHeight) {
+            for (x in 0 until gridWidth) {
+                if (WorldMapGrid.isLand(x, y)) {
+                    canvas.drawCircle(
+                        Offset(
+                            x * scaleFactor + scaleFactor / 2f,
+                            y * scaleFactor + scaleFactor / 2f
+                        ),
+                        scaleFactor * 0.45f,
+                        paint
+                    )
+                }
+            }
+        }
+        bmp
+    }
 
     Box(
         modifier = modifier
@@ -169,12 +202,6 @@ fun DotMatrixMap(
                     val gridStartX = mapLeft + offsetX
                     val gridStartY = mapTop + offsetY
 
-                    // ---- Visible grid bounds ----
-                    val colStart = max(0, ((-gridStartX / cellW).toInt() - 1).coerceIn(0, gridWidth - 1))
-                    val colEnd = min(gridWidth - 1, ((canvasW - gridStartX) / cellW).toInt() + 1)
-                    val rowStart = max(0, ((-gridStartY / cellH).toInt() - 1).coerceIn(0, gridHeight - 1))
-                    val rowEnd = min(gridHeight - 1, ((canvasH - gridStartY) / cellH).toInt() + 1)
-
                     fun latLngToCanvas(lat: Double, lng: Double): Offset {
                         val gx = WorldMapProjection.longitudeToGridX(lng, gridWidth)
                         val gy = WorldMapProjection.mercatorY(lat, gridHeight)
@@ -184,47 +211,12 @@ fun DotMatrixMap(
                         )
                     }
 
-                    // ---- Batch-render land dots (with sub-cell density) ----
-                    val dotDensity = when {
-                        scale >= 12f -> 6
-                        scale >= 6f -> 4
-                        scale >= 2f -> 2
-                        else -> 1
-                    }
-                    val dotRadius = (cellW * 0.22f / dotDensity).coerceIn(0.5f, 3f)
-                    val dotColor = OnSurfaceVariant.copy(alpha = 0.45f)
-
-                    if (colStart <= colEnd && rowStart <= rowEnd) {
-                        val landPoints = buildList {
-                            for (y in rowStart..rowEnd) {
-                                for (x in colStart..colEnd) {
-                                    if (WorldMapGrid.isLand(x, y)) {
-                                        if (dotDensity == 1) {
-                                            add(Offset(
-                                                gridStartX + x * cellW + cellW / 2,
-                                                gridStartY + y * cellH + cellH / 2
-                                            ))
-                                        } else {
-                                            val step = cellW / dotDensity
-                                            val halfStep = step / 2f
-                                            for (dy in 0 until dotDensity) {
-                                                for (dx in 0 until dotDensity) {
-                                                    add(Offset(
-                                                        gridStartX + x * cellW + dx * step + halfStep,
-                                                        gridStartY + y * cellH + dy * step + halfStep
-                                                    ))
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        if (landPoints.isNotEmpty()) {
-                            drawPoints(landPoints, PointMode.Points, dotColor, dotRadius * 2f, StrokeCap.Round)
-                        }
-                    }
+                    // ---- Draw pre-rendered land dot bitmap (single GPU call, no per-frame allocations) ----
+                    drawImage(
+                        image = mapBitmap,
+                        dstOffset = IntOffset(gridStartX.roundToInt(), gridStartY.roundToInt()),
+                        dstSize = IntSize(mapW.roundToInt(), mapH.roundToInt())
+                    )
 
                     // ---- Track recording path ----
                     if (trackPoints.size >= 2) {

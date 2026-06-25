@@ -29,6 +29,7 @@ fun ReadoutTile(
     unit: String = "",
     subLabel: String = "",
     unitInline: Boolean = false,
+    compact: Boolean = false,
     valueColor: androidx.compose.ui.graphics.Color = PrimaryFixedDim,
     modifier: Modifier = Modifier
 ) {
@@ -52,7 +53,7 @@ fun ReadoutTile(
                 ) {
                     Text(
                         text = value,
-                        style = if (value.length <= 6) DisplayData else TelemetryMd,
+                        style = if (compact) TelemetryMd else if (value.length <= 6) DisplayData else TelemetryMd,
                         color = valueColor,
                         fontWeight = FontWeight.Bold
                     )
@@ -69,7 +70,7 @@ fun ReadoutTile(
                         append(value)
                         if (unit.isNotEmpty()) append(" ")
                     },
-                    style = if (value.length <= 6) DisplayData else TelemetryMd,
+                    style = if (compact) TelemetryMd else if (value.length <= 6) DisplayData else TelemetryMd,
                     color = valueColor,
                     fontWeight = FontWeight.Bold
                 )

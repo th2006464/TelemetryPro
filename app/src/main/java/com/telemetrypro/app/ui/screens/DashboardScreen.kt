@@ -151,7 +151,8 @@ fun DashboardScreen(
                         label = stringResource(R.string.dashboard_sat_count),
                         value = "${state.usedSatellites}/${state.totalSatellites}",
                         valueColor = Secondary,
-                        modifier = Modifier.weight(0.35f)
+                        compact = true,
+                        modifier = Modifier.weight(1f)
                     )
                 }
             }
