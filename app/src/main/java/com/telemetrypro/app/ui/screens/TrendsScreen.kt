@@ -4,6 +4,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -18,20 +19,34 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.telemetrypro.app.R
 import com.telemetrypro.app.data.LocationState
+import com.telemetrypro.app.data.NetworkCellInfoProvider
 import com.telemetrypro.app.ui.components.NmeaFeed
 import com.telemetrypro.app.ui.components.TopAppBar
 import com.telemetrypro.app.ui.theme.*
+import kotlinx.coroutines.delay
 import kotlin.math.min as mathMin
 
 @Composable
 fun TrendsScreen(
     state: LocationState,
     isOnlineMode: Boolean = false,
+    cellInfo: NetworkCellInfoProvider.CellTowerInfo = NetworkCellInfoProvider.CellTowerInfo(),
+    onRefreshCellInfo: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    // Refresh cell info every 10 seconds while this screen is visible
+    LaunchedEffect(Unit) {
+        onRefreshCellInfo()
+        while (true) {
+            delay(10_000L)
+            onRefreshCellInfo()
+        }
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -85,7 +100,93 @@ fun TrendsScreen(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
         )
 
+        // Cellular tower info panel
+        CellTowerInfoCard(
+            cellInfo = cellInfo,
+            onRefresh = onRefreshCellInfo,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+        )
+
         Spacer(Modifier.height(80.dp))
+    }
+}
+
+@Composable
+private fun CellTowerInfoCard(
+    cellInfo: NetworkCellInfoProvider.CellTowerInfo,
+    onRefresh: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(TileBackground, RoundedCornerShape(12.dp))
+            .border(1.dp, TileBorder, RoundedCornerShape(12.dp))
+            .clickable { onRefresh() }
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "基站信息（网络定位用）",
+                style = LabelCaps,
+                color = OnSurfaceVariant
+            )
+            Text(
+                "点击刷新",
+                style = CodeSm,
+                color = OnSurfaceVariant.copy(alpha = 0.4f)
+            )
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        if (!cellInfo.available) {
+            Text(
+                "无法读取基站信息（需要定位权限）",
+                style = CodeSm,
+                color = OnSurfaceVariant.copy(alpha = 0.4f)
+            )
+            return@Column
+        }
+
+        // Operator / network
+        InfoRow("运营商", cellInfo.operatorName, valueColor = PrimaryFixedDim)
+        InfoRow("网络类型", cellInfo.networkTypeName + if (cellInfo.isRoaming) " · 漫游" else "")
+        InfoRow("信号强度", "${cellInfo.level}/4" + if (cellInfo.rsrpDbm != Int.MIN_VALUE) " · ${cellInfo.rsrpDbm} dBm" else "")
+
+        Spacer(Modifier.height(8.dp))
+
+        Text(
+            "服务小区（Serving Cell）",
+            style = LabelCaps,
+            color = OnSurfaceVariant,
+            modifier = Modifier.padding(bottom = 6.dp)
+        )
+
+        InfoRow("MCC 国家码", cellInfo.mcc)
+        InfoRow("MNC 网络码", cellInfo.mnc)
+        InfoRow("小区标识 CI", cellInfo.cellId)
+        InfoRow("跟踪区码 TAC", cellInfo.tac)
+        InfoRow("物理小区 PCI", cellInfo.pci)
+        InfoRow("频点", cellInfo.band)
+        if (cellInfo.rsrpDbm != Int.MIN_VALUE) InfoRow("参考信号功率 RSRP", "${cellInfo.rsrpDbm} dBm")
+        if (cellInfo.rsrqDb != Int.MIN_VALUE) InfoRow("参考信号质量 RSRQ", "${cellInfo.rsrqDb} dB")
+        InfoRow("邻区数量", "${cellInfo.neighborCount}")
+
+        Spacer(Modifier.height(8.dp))
+
+        Text(
+            "说明：网络辅助定位正是通过这些基站参数（CI、TAC、PCI、信号强度）" +
+            "向系统查询位置估算的。MCC 标识国家（中国=460），MNC 标识运营商" +
+            "（如移动=00/02，联通=01，电信=11）。RSRP 越接近 0 信号越强，" +
+            "一般 -80 dBm 以上为优，-110 dBm 以下为弱。点击卡片可手动刷新。",
+            style = CodeSm,
+            color = OnSurfaceVariant.copy(alpha = 0.5f)
+        )
     }
 }
 

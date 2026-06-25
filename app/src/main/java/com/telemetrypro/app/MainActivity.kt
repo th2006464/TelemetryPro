@@ -136,7 +136,9 @@ private fun MainApp() {
                 )
                 2 -> TrendsScreen(
                     state = state,
-                    isOnlineMode = isOnlineMode
+                    isOnlineMode = isOnlineMode,
+                    cellInfo = viewModel.cellInfoProvider.cellInfo.collectAsStateWithLifecycle().value,
+                    onRefreshCellInfo = { viewModel.refreshCellInfo() }
                 )
                 3 -> RecordScreen(
                     state = state,

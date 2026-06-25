@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import com.telemetrypro.app.data.GpsFixStatus
 import com.telemetrypro.app.data.GpsRepository
 import com.telemetrypro.app.data.LocationState
+import com.telemetrypro.app.data.NetworkCellInfoProvider
 import com.telemetrypro.app.data.TrackRepository
 import com.telemetrypro.app.data.TrackSession
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,6 +25,7 @@ class GpsViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = GpsRepository(application)
     val trackRepository = TrackRepository(application)
+    val cellInfoProvider = NetworkCellInfoProvider(application)
     private val prefs = application.getSharedPreferences("telemetry_pro", Context.MODE_PRIVATE)
 
     private val _isOnlineMode = MutableStateFlow(
@@ -134,7 +136,11 @@ class GpsViewModel(application: Application) : AndroidViewModel(application) {
         repository.restart()
         // Refresh network status when user toggles online mode
         checkNetworkImmediate()
+        cellInfoProvider.refresh()
     }
+
+    /** Trigger a one-shot read of cellular tower info. Caller decides frequency. */
+    fun refreshCellInfo() = cellInfoProvider.refresh()
 
     fun setNmeaLoggingEnabled(enabled: Boolean) {
         _nmeaLoggingEnabled.value = enabled
