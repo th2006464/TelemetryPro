@@ -89,11 +89,6 @@ fun SettingsScreen(
                         .clickable {
                             if (!isOnlineMode) {
                                 onOnlineModeChanged(true)
-                                Toast.makeText(
-                                    context,
-                                    context.getString(R.string.network_mode_changed),
-                                    Toast.LENGTH_SHORT
-                                ).show()
                             }
                         }
                         .padding(12.dp),
@@ -131,11 +126,6 @@ fun SettingsScreen(
                         .clickable {
                             if (isOnlineMode) {
                                 onOnlineModeChanged(false)
-                                Toast.makeText(
-                                    context,
-                                    context.getString(R.string.network_mode_changed),
-                                    Toast.LENGTH_SHORT
-                                ).show()
                             }
                         }
                         .padding(12.dp),

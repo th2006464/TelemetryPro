@@ -1001,6 +1001,19 @@ UI Screens
 
 **Update frequency**: LocationListener fires every 1 second; GnssStatus fires on each satellite status change (typically 1–4s). UI recomposition is driven by StateFlow — no manual invalidation needed.
 
+
+### Changelog
+
+#### v1.7.3 (2026-06-25)
+
+- **修复**: 网络状态检测 — 添加 `ACCESS_NETWORK_STATE` 权限声明，解决在线模式下始终显示「等待网络连接」的问题
+- **修复**: 移除网络模式切换时「重新启动 GPS 后生效」的 Toast 提示，切换后自动生效，无需用户操作
+
+#### v1.7.3 (2026-06-25)
+
+- **Fix**: Network status detection — added `ACCESS_NETWORK_STATE` permission declaration so ConnectivityManager can properly query network state. Resolves waiting for network stuck in online mode.
+- **Fix**: Removed the misleading restart GPS to apply toast when toggling network mode. The switch now takes effect automatically.
+
 ### Permissions
 
 ```xml
