@@ -28,6 +28,7 @@ import com.telemetrypro.app.ui.components.NmeaFeed
 import com.telemetrypro.app.ui.components.TopAppBar
 import com.telemetrypro.app.ui.theme.*
 import kotlin.math.min as mathMin
+import kotlinx.coroutines.delay
 
 @Composable
 fun TrendsScreen(
@@ -37,9 +38,27 @@ fun TrendsScreen(
     onRefreshCellInfo: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    // No auto-refresh on screen entry — only refresh on tap.
-    // This avoids cold-start crashes from TelephonyManager not being ready.
-    // The card has a "点击刷新" hint and is clickable.
+    // Cold-start crash protection:
+    // Freeze a snapshot of state on first composition. During the critical
+    // first-frame window, GNSS/location callbacks (~1Hz) keep replacing
+    // the state reference, which forces Compose to re-enter TrendsScreen
+    // before it finishes measuring/layoutting its 7 cards + 4 Canvases.
+    // By holding a frozen snapshot for one frame, we guarantee the first
+    // composition completes successfully. After that, Compose's diffing
+    // engine handles incremental updates efficiently.
+    val frozenSnapshot = remember { mutableStateOf<LocationState?>(null) }
+    val ready = remember { mutableStateOf(false) }
+
+    // Capture snapshot on first entry
+    LaunchedEffect(Unit) {
+        frozenSnapshot.value = state
+        // Yield to allow first composition with frozen data
+        delay(1)
+        ready.value = true
+    }
+
+    // Use frozen snapshot until ready; then follow live state
+    val displayState = if (ready.value) state else (frozenSnapshot.value ?: state)
 
     Column(
         modifier = modifier
@@ -49,14 +68,14 @@ fun TrendsScreen(
     ) {
         TopAppBar(
             fixLabel = stringResource(R.string.fix_status_tracking),
-            isFixed = state.speedKmh > 0,
+            isFixed = displayState.speedKmh > 0,
             isOnline = isOnlineMode
         )
 
         Spacer(Modifier.height(8.dp))
 
         SpeedometerCard(
-            speedKmh = state.speedKmh,
+            speedKmh = displayState.speedKmh,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 4.dp)
@@ -76,15 +95,15 @@ fun TrendsScreen(
         ) {
             VsiCard(modifier = Modifier.weight(0.35f))
             TerrainCard(
-                altitude = state.altitudeMeters,
-                latitude = state.latitude,
-                longitude = state.longitude,
+                altitude = displayState.altitudeMeters,
+                latitude = displayState.latitude,
+                longitude = displayState.longitude,
                 modifier = Modifier.weight(0.65f)
             )
         }
 
         NmeaFeed(
-            lines = state.nmeaLogLines,
+            lines = displayState.nmeaLogLines,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
         )
 
@@ -93,19 +112,19 @@ fun TrendsScreen(
         // card's recomposition when high-frequency fields like state.satellites
         // change but this card's inputs don't.
         LocationSourceInfoCard(
-            provider = state.provider,
-            ttffMillis = state.ttffMillis,
-            isOnlineMode = state.isOnlineMode,
-            isNetworkAvailable = state.isNetworkAvailable,
-            latitude = state.latitude,
-            longitude = state.longitude,
-            accuracy = state.accuracy,
-            altitudeMeters = state.altitudeMeters,
-            speedKmh = state.speedKmh,
-            bearing = state.bearing,
-            usedSatellites = state.usedSatellites,
-            totalSatellites = state.totalSatellites,
-            nmeaLogLineCount = state.nmeaLogLines.size,
+            provider = displayState.provider,
+            ttffMillis = displayState.ttffMillis,
+            isOnlineMode = displayState.isOnlineMode,
+            isNetworkAvailable = displayState.isNetworkAvailable,
+            latitude = displayState.latitude,
+            longitude = displayState.longitude,
+            accuracy = displayState.accuracy,
+            altitudeMeters = displayState.altitudeMeters,
+            speedKmh = displayState.speedKmh,
+            bearing = displayState.bearing,
+            usedSatellites = displayState.usedSatellites,
+            totalSatellites = displayState.totalSatellites,
+            nmeaLogLineCount = displayState.nmeaLogLines.size,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
         )
 

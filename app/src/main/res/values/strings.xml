@@ -62,8 +62,8 @@
     <string name="settings_title">系统配置</string>
     <string name="settings_subtitle">控制面板 v1.6.1 // 全屏地图已上线</string>
     <string name="settings_distance_unit">距离单位</string>
-    <string name="settings_metric_km">公制 (km)</string>
-    <string name="settings_imperial_mi">英制 (mi)</string>
+    <string name="settings_metric_km">KM</string>
+    <string name="settings_imperial_mi">MI</string>
     <string name="settings_velocity_unit">速度单位</string>
     <string name="settings_coord_system">坐标参考系</string>
     <string name="settings_crs_dd">十进制度 (DD)</string>
@@ -73,7 +73,7 @@
     <string name="settings_crs_dms_example">40°42\'46\"N</string>
     <string name="settings_crs_utm_example">18T 583944 4507345</string>
     <string name="settings_altitude_ref">高度基准</string>
-    <string name="settings_altitude_msl">平均海平面 (MSL)</string>
+    <string name="settings_altitude_msl">MSL 海拔</string>
     <string name="settings_language">界面语言</string>
     <string name="settings_lang_chinese">中文</string>
     <string name="settings_lang_english">English</string>

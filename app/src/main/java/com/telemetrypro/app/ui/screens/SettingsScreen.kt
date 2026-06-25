@@ -221,6 +221,7 @@ fun SettingsScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .height(IntrinsicSize.Max)
                 .padding(horizontal = 16.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -231,7 +232,7 @@ fun SettingsScreen(
             ) {
                 var selected by remember { mutableStateOf(0) }
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf(stringResource(R.string.settings_metric_km), stringResource(R.string.settings_imperial_mi)).forEachIndexed { i, label ->
+                    listOf("KM", "MI").forEachIndexed { i, label ->
                         val isSelected = i == selected
                         Box(
                             modifier = Modifier
@@ -267,13 +268,13 @@ fun SettingsScreen(
             ) {
                 var selected by remember { mutableStateOf(0) }
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf("m", "ft").forEachIndexed { i, label ->
+                    listOf("M", "FT").forEachIndexed { i, label ->
                         val isSelected = i == selected
                         Box(
                             modifier = Modifier
                                 .weight(1f)
                                 .background(
-                                    if (isSelected) PrimaryContainer else Color.Transparent,
+                                    if (isSelected) PrimaryContainer.copy(alpha = 0.2f) else SurfaceContainerHigh,
                                     RoundedCornerShape(8.dp)
                                 )
                                 .border(
@@ -288,7 +289,7 @@ fun SettingsScreen(
                             Text(
                                 label,
                                 style = TelemetryMd,
-                                color = if (isSelected) OnPrimary else OnSurfaceVariant
+                                color = if (isSelected) PrimaryFixedDim else OnSurfaceVariant
                             )
                         }
                     }
