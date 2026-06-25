@@ -48,7 +48,8 @@ class GpsViewModel(application: Application) : AndroidViewModel(application) {
         gpsState.copy(
             isRecording = isRecording,
             recordingDistanceKm = distanceKm,
-            recordingPoints = trackPoints
+            recordingPoints = trackPoints,
+            isNetworkAvailable = _isNetworkAvailable.value
         )
     }.stateIn(
         scope = viewModelScope,

@@ -62,6 +62,7 @@ data class LocationState(
 
     // Network mode
     val isOnlineMode: Boolean = false,
+    val isNetworkAvailable: Boolean = false,
 
     // Recording / distance tracking
     val isRecording: Boolean = false,

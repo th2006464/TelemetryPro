@@ -113,9 +113,9 @@ fun DashboardScreen(
                     valueColor = if (state.accuracy < 10f) Secondary else OnSurfaceVariant,
                     subLabel = when {
                         state.provider.isEmpty() -> ""
-                        state.provider == "gps" -> "GPS" + if (state.ttffMillis > 0) " · TTFF ${state.ttffMillis / 1000.0}s" else ""
-                        state.provider == "network" -> "网络辅助"
-                        state.provider == "fused" -> "Fused"
+                        state.provider == "gps" -> "卫星定位" + if (state.ttffMillis > 0) " · 首次定位 ${"%.1f".format(state.ttffMillis / 1000.0)}秒" else ""
+                        state.provider == "network" -> "网络辅助定位"
+                        state.provider == "fused" -> "融合定位（GPS+网络）"
                         else -> state.provider
                     },
                     modifier = Modifier.weight(1f).fillMaxHeight()

@@ -79,7 +79,156 @@ fun TrendsScreen(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
         )
 
+        // Location source info panel
+        LocationSourceInfoCard(
+            state = state,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+        )
+
         Spacer(Modifier.height(80.dp))
+    }
+}
+
+@Composable
+private fun LocationSourceInfoCard(
+    state: LocationState,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(TileBackground, RoundedCornerShape(12.dp))
+            .border(1.dp, TileBorder, RoundedCornerShape(12.dp))
+            .padding(16.dp)
+    ) {
+        Text(
+            "定位来源与系统信息",
+            style = LabelCaps,
+            color = OnSurfaceVariant,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+
+        // --- Current provider ---
+        InfoRow(
+            label = "当前定位来源",
+            value = when {
+                state.provider.isEmpty() -> "未定位"
+                state.provider == "gps" -> "卫星定位（GPS / GNSS）"
+                state.provider == "network" -> "网络辅助定位（基站 / Wi-Fi）"
+                state.provider == "fused" -> "融合定位（卫星 + 网络）"
+                else -> state.provider
+            },
+            valueColor = if (state.provider == "gps") Secondary else PrimaryFixedDim
+        )
+
+        // --- TTFF ---
+        if (state.ttffMillis > 0) {
+            InfoRow(
+                label = "首次定位时间",
+                value = "${"%.1f".format(state.ttffMillis / 1000.0)} 秒",
+                hint = "从启动到获取第一个有效定位的时间"
+            )
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        // --- Network status ---
+        Text(
+            "网络辅助定位状态",
+            style = LabelCaps,
+            color = OnSurfaceVariant,
+            modifier = Modifier.padding(bottom = 6.dp)
+        )
+        InfoRow(
+            label = "辅助定位开关",
+            value = if (state.isOnlineMode) "已开启" else "已关闭",
+            valueColor = if (state.isOnlineMode) Secondary else OnSurfaceVariant
+        )
+        InfoRow(
+            label = "网络连接",
+            value = if (state.isNetworkAvailable) "已连接" else "未连接",
+            valueColor = if (state.isNetworkAvailable) Secondary else OnSurfaceVariant
+        )
+
+        Spacer(Modifier.height(8.dp))
+
+        // --- Provider capabilities comparison ---
+        Text(
+            "各定位方式可提供的信息",
+            style = LabelCaps,
+            color = OnSurfaceVariant,
+            modifier = Modifier.padding(bottom = 6.dp)
+        )
+
+        // Header row
+        Row(modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
+            Text("信息项", style = CodeSm, color = OnSurfaceVariant.copy(alpha = 0.5f), modifier = Modifier.weight(0.3f))
+            Text("卫星定位", style = CodeSm, color = OnSurfaceVariant.copy(alpha = 0.5f), modifier = Modifier.weight(0.23f))
+            Text("网络辅助", style = CodeSm, color = OnSurfaceVariant.copy(alpha = 0.5f), modifier = Modifier.weight(0.23f))
+            Text("当前值", style = CodeSm, color = OnSurfaceVariant.copy(alpha = 0.5f), modifier = Modifier.weight(0.24f))
+        }
+
+        CapabilityRow("经纬度", "✓ 精确", "✓ 粗略", String.format("%.4f, %.4f", state.latitude, state.longitude))
+        CapabilityRow("精度", "1-10米", "10-100米", "${"%.1f".format(state.accuracy)} 米")
+        CapabilityRow("海拔", "✓ 可靠", "✗ 不可靠", if (state.altitudeMeters != 0.0) "${"%.0f".format(state.altitudeMeters)} 米" else "—")
+        CapabilityRow("速度", "✓ 可靠", "✗ 通常为0", "${"%.1f".format(state.speedKmh)} km/h")
+        CapabilityRow("方向", "✓ 可靠", "✗ 通常无", if (state.bearing > 0) "${state.bearing.toInt()}°" else "—")
+        CapabilityRow("卫星数", "✓", "✗ 无", "${state.usedSatellites}/${state.totalSatellites}")
+        CapabilityRow("NMEA数据", "✓", "✗ 无", if (state.nmeaLogLines.isNotEmpty()) "${state.nmeaLogLines.size} 行" else "—")
+
+        Spacer(Modifier.height(8.dp))
+
+        // --- Explanation ---
+        Text(
+            "说明：卫星定位通过 GNSS 芯片接收卫星信号，精度高但室内信号弱；" +
+            "网络辅助定位通过基站和 Wi-Fi 估算位置，精度低但室内可用，且能加速卫星首次定位。" +
+            "本应用中卫星定位始终优先，网络辅助仅在卫星失效时接管。",
+            style = CodeSm,
+            color = OnSurfaceVariant.copy(alpha = 0.5f),
+            modifier = Modifier.padding(top = 4.dp)
+        )
+    }
+}
+
+@Composable
+private fun InfoRow(
+    label: String,
+    value: String,
+    valueColor: androidx.compose.ui.graphics.Color = PrimaryFixedDim,
+    hint: String = ""
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, style = CodeSm, color = OnSurfaceVariant.copy(alpha = 0.7f), modifier = Modifier.weight(0.35f))
+        Text(value, style = CodeSm, color = valueColor, modifier = Modifier.weight(0.65f))
+    }
+    if (hint.isNotEmpty()) {
+        Text(
+            "  $hint",
+            style = CodeSm,
+            color = OnSurfaceVariant.copy(alpha = 0.4f),
+            modifier = Modifier.padding(start = 8.dp, bottom = 2.dp)
+        )
+    }
+}
+
+@Composable
+private fun CapabilityRow(
+    item: String,
+    gps: String,
+    network: String,
+    current: String
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(item, style = CodeSm, color = OnSurfaceVariant.copy(alpha = 0.8f), modifier = Modifier.weight(0.3f))
+        Text(gps, style = CodeSm, color = Secondary.copy(alpha = 0.8f), modifier = Modifier.weight(0.23f))
+        Text(network, style = CodeSm, color = OnSurfaceVariant.copy(alpha = 0.6f), modifier = Modifier.weight(0.23f))
+        Text(current, style = CodeSm, color = PrimaryFixedDim, modifier = Modifier.weight(0.24f))
     }
 }
 
