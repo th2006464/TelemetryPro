@@ -193,19 +193,37 @@ fun DotMatrixMap(
                         )
                     }
 
-                    // ---- Batch-render land dots ----
-                    val dotRadius = (cellW * 0.22f).coerceIn(1f, 4f)
+                    // ---- Batch-render land dots (with sub-cell density) ----
+                    val dotDensity = when {
+                        scale >= 4f -> 3
+                        scale >= 2f -> 2
+                        else -> 1
+                    }
+                    val dotRadius = (cellW * 0.22f / dotDensity).coerceIn(0.5f, 3f)
                     val dotColor = OnSurfaceVariant.copy(alpha = 0.45f)
 
                     if (colStart <= colEnd && rowStart <= rowEnd) {
-                        val landPoints = buildList(capacity = 500) {
+                        val landPoints = buildList {
                             for (y in rowStart..rowEnd) {
                                 for (x in colStart..colEnd) {
                                     if (WorldMapGrid.isLand(x, y)) {
-                                        add(Offset(
-                                            gridStartX + x * cellW + cellW / 2,
-                                            gridStartY + y * cellH + cellH / 2
-                                        ))
+                                        if (dotDensity == 1) {
+                                            add(Offset(
+                                                gridStartX + x * cellW + cellW / 2,
+                                                gridStartY + y * cellH + cellH / 2
+                                            ))
+                                        } else {
+                                            val step = cellW / dotDensity
+                                            val halfStep = step / 2f
+                                            for (dy in 0 until dotDensity) {
+                                                for (dx in 0 until dotDensity) {
+                                                    add(Offset(
+                                                        gridStartX + x * cellW + dx * step + halfStep,
+                                                        gridStartY + y * cellH + dy * step + halfStep
+                                                    ))
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }

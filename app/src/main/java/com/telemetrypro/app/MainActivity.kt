@@ -163,7 +163,7 @@ private fun MainApp() {
                         val intent = Intent(context, MainActivity::class.java)
                         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                         context.startActivity(intent)
-                        Runtime.getRuntime().exit(0)
+                        // Activity will be recreated with new locale via attachBaseContext
                     },
                     onNmeaLoggingChanged = { enabled -> viewModel.setNmeaLoggingEnabled(enabled) }
                 )

@@ -9,19 +9,20 @@ import com.telemetrypro.app.ui.theme.ConstellationColors
  */
 enum class Constellation(
     val label: String,
+    val flag: String,
     val countryZh: String,
     val countryEn: String,
     val constellationType: Int,
     val color: Color
 ) {
-    GPS("GPS", "美国", "USA", 1, ConstellationColors.GPS),
-    SBAS("SBAS", "广域增强", "Global", 2, ConstellationColors.SBAS),
-    GLONASS("GLONASS", "俄罗斯", "Russia", 3, ConstellationColors.GLONASS),
-    QZSS("QZSS", "日本", "Japan", 4, ConstellationColors.QZSS),
-    BEIDOU("BEIDOU", "中国", "China", 5, ConstellationColors.BEIDOU),
-    GALILEO("GALILEO", "欧盟", "EU", 6, ConstellationColors.GALILEO),
-    IRNSS("IRNSS", "印度", "India", 7, ConstellationColors.IRNSS),
-    UNKNOWN("UNKN", "未知", "Unknown", 0, ConstellationColors.UNKNOWN);
+    GPS("GPS", "🇺🇸", "美国", "USA", 1, ConstellationColors.GPS),
+    SBAS("SBAS", "🌐", "广域增强", "Global", 2, ConstellationColors.SBAS),
+    GLONASS("GLONASS", "🇷🇺", "俄罗斯", "Russia", 3, ConstellationColors.GLONASS),
+    QZSS("QZSS", "🇯🇵", "日本", "Japan", 4, ConstellationColors.QZSS),
+    BEIDOU("BEIDOU", "🇨🇳", "中国", "China", 5, ConstellationColors.BEIDOU),
+    GALILEO("GALILEO", "🇪🇺", "欧盟", "EU", 6, ConstellationColors.GALILEO),
+    IRNSS("IRNSS", "🇮🇳", "印度", "India", 7, ConstellationColors.IRNSS),
+    UNKNOWN("UNKN", "❓", "未知", "Unknown", 0, ConstellationColors.UNKNOWN);
 
     companion object {
         /**

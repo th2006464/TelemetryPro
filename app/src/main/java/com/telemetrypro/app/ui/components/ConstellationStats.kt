@@ -1,6 +1,5 @@
 package com.telemetrypro.app.ui.components
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -33,7 +32,7 @@ fun ConstellationStatsCard(
             stringResource(R.string.constellations_title),
             style = LabelCaps,
             color = OnSurfaceVariant,
-            modifier = Modifier.padding(bottom = 8.dp)
+            modifier = Modifier.padding(bottom = 6.dp)
         )
 
         if (stats.isEmpty()) {
@@ -43,56 +42,48 @@ fun ConstellationStatsCard(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 4.dp),
+                        .padding(vertical = 2.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Canvas(modifier = Modifier.size(10.dp)) {
-                        drawCircle(color = stat.constellation.color)
-                    }
-
-                    Spacer(Modifier.width(8.dp))
-
                     Text(
-                        text = stat.constellation.label,
-                        style = TelemetryMd,
+                        text = stat.constellation.flag + " " + stat.constellation.label,
+                        style = CodeSm,
                         color = stat.constellation.color,
                         fontWeight = FontWeight.Medium,
-                        modifier = Modifier.width(80.dp)
+                        modifier = Modifier.width(86.dp)
                     )
 
                     val countColor = if (stat.usedInFix > 0) Secondary else OnSurfaceVariant
                     Text(
                         text = "${stat.usedInFix}/${stat.totalVisible}",
-                        style = TelemetryMd,
+                        style = CodeSm,
                         color = countColor,
-                        modifier = Modifier.width(48.dp)
+                        modifier = Modifier.width(38.dp)
                     )
 
                     val snrRatio = (stat.avgSnr / 50f).coerceIn(0f, 1f)
-                    Canvas(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(6.dp)
-                    ) {
-                        drawRoundRect(
-                            color = SurfaceContainerHighest,
-                            size = Size(size.width, size.height),
-                            cornerRadius = CornerRadius(3f)
-                        )
-                        drawRoundRect(
-                            color = stat.constellation.color,
-                            size = Size(size.width * snrRatio, size.height),
-                            cornerRadius = CornerRadius(3f)
-                        )
+                    Box(modifier = Modifier.weight(1f).height(6.dp)) {
+                       androidx.compose.foundation.Canvas(Modifier.fillMaxSize()) {
+                            drawRoundRect(
+                                color = SurfaceContainerHighest,
+                                size = Size(size.width, size.height),
+                                cornerRadius = CornerRadius(3f)
+                            )
+                            drawRoundRect(
+                                color = stat.constellation.color,
+                                size = Size(size.width * snrRatio, size.height),
+                                cornerRadius = CornerRadius(3f)
+                            )
+                        }
                     }
 
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(6.dp))
 
                     Text(
                         text = "${stat.avgSnr.toInt()}",
                         style = CodeSm,
                         color = OnSurfaceVariant,
-                        modifier = Modifier.width(28.dp)
+                        modifier = Modifier.width(24.dp)
                     )
                 }
             }

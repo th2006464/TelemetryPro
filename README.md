@@ -1004,6 +1004,21 @@ UI Screens
 
 ### Changelog
 
+
+#### v1.7.5 (2026-06-25)
+
+- **星座面板优化**: 每个星座系统前添加国旗 Emoji 标识（🇺🇸 GPS、🇷🇺 GLONASS、🇨🇳 北斗等），文字缩小为 CodeSm，布局更紧凑
+- **Dashboard 对齐**: 卫星数面板改用 weight(0.35f) 与星座卡片自动对齐
+- **语言切换优化**: 移除 Runtime.exit(0)，语言切换流程更干净稳定
+- **地图点阵加密**: 缩放 ≥2x 时自动使用 2×2 子网格，≥4x 时 3×3 子网格，大陆轮廓更完整
+
+#### v1.7.5 (2026-06-25)
+
+- **Constellation panel**: Added country flag emoji for each system (🇺🇸 GPS, 🇷🇺 GLONASS, 🇨🇳 BeiDou, etc.), compact layout with CodeSm text
+- **Dashboard alignment**: Satellite count panel now uses weight(0.35f) to align with constellation card
+- **Language switch**: Removed Runtime.exit(0) for cleaner activity recreation
+- **Map dot density**: Sub-cell sampling at 2×2 (scale ≥2x) and 3×3 (scale ≥4x) for more complete coastlines
+
 #### v1.7.4 (2026-06-25)
 
 - **Dashboard 布局调整**: GNSS 坐标 + 定位精度左右并排；星座统计 + 卫星数改为左右并排放置
