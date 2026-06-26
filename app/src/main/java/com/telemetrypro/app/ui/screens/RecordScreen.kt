@@ -156,9 +156,7 @@ private fun RecordingTab(
 
         // ===== INFO BAR below compass =====
         CompassInfoBar(
-            bearingText = if (state.recordingPoints.isNotEmpty()) {
-                state.recordingPoints.last().compassShort
-            } else "---",
+            azimuth = azimuth,
             altitudeText = "${state.altitudeMeters.toInt()}m",
             speedText = "${String.format("%.0f", state.speedKmh)} km/h",
             distanceText = if (isRecording) "${String.format("%.2f", distanceKm)} km" else "",
@@ -354,10 +352,10 @@ private fun PlaybackTab(
                         .padding(horizontal = 16.dp)
                 )
 
-                // Session info under compass
+                // Session info under compass — use last track point's bearing for playback
                 val lastPt = displaySession.points.lastOrNull()
                 CompassInfoBar(
-                    bearingText = lastPt?.compassShort ?: "---",
+                    azimuth = lastPt?.bearing ?: 0f,
                     altitudeText = "${lastPt?.altitude?.toInt() ?: 0}m",
                     speedText = "",
                     distanceText = "${String.format("%.2f", displaySession.totalDistanceKm)} km"

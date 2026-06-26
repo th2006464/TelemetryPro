@@ -3,6 +3,7 @@ package com.telemetrypro.app.ui.components
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,6 +26,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.telemetrypro.app.data.TrackPoint
 import com.telemetrypro.app.ui.theme.*
@@ -59,7 +61,7 @@ fun CompassRose(
             val cy = ch / 2f
             val radius = min(cx, cy) - 4f
 
-            val rotDeg = -azimuth
+            val rotDeg = azimuth
             val canvasObj = drawContext.canvas
 
             drawCircle(
@@ -278,57 +280,56 @@ fun CompassRose(
     }
 }
 
+/**
+ * Convert azimuth degrees to short Chinese direction label.
+ * 8-point: 北/东北/东/东南/南/西南/西/西北
+ */
+fun azimuthToDirection(azimuth: Float): String {
+    val normalized = ((azimuth % 360f) + 360f) % 360f
+    val dirs = arrayOf("北", "东北", "东", "东南", "南", "西南", "西", "西北")
+    val idx = ((normalized + 22.5f) / 45f).toInt() % 8
+    return dirs[idx]
+}
+
 @Composable
 fun CompassInfoBar(
-    bearingText: String,
-    altitudeText: String,
+    azimuth: Float = 0f,
+    altitudeText: String = "",
     speedText: String = "",
     distanceText: String = "",
     isRecording: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    val headingStr = "${azimuth.toInt()}°${azimuthToDirection(azimuth)}"
+
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 20.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Box(
-            modifier = Modifier
-                .size(40.dp)
-                .background(SurfaceContainerLowest, CircleShape)
-                .border(1.dp, OutlineVariant.copy(alpha = 0.3f), CircleShape),
-            contentAlignment = Alignment.Center
+        // Left: heading angle + direction (e.g. "76°东")
+        Text(
+            headingStr,
+            style = TelemetryMd,
+            color = PrimaryFixedDim,
+            fontWeight = FontWeight.Bold
+        )
+
+        // Right: altitude + speed
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(bearingText, style = TelemetryMd, color = PrimaryFixedDim)
-        }
-
-        Spacer(Modifier.weight(1f))
-
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Row {
-                Text("\u26F0", color = OnSurfaceVariant.copy(alpha = 0.6f))
-                Spacer(Modifier.width(4.dp))
+            if (altitudeText.isNotEmpty()) {
                 Text(altitudeText, style = TelemetryMd, color = OnSurfaceVariant)
             }
             if (speedText.isNotEmpty()) {
                 Text(speedText, style = CodeSm, color = OnSurfaceVariant.copy(alpha = 0.6f))
             }
-        }
-
-        Spacer(Modifier.weight(1f))
-
-        if (distanceText.isNotEmpty()) {
-            Text(distanceText, style = TelemetryMd, color = Secondary)
-        } else if (isRecording) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(Secondary.copy(alpha = 0.2f), CircleShape)
-                    .border(1.5.dp, Secondary, CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("\u25CF", style = LabelCaps, color = Secondary)
+            if (distanceText.isNotEmpty()) {
+                Text(distanceText, style = TelemetryMd, color = Secondary)
             }
         }
     }
