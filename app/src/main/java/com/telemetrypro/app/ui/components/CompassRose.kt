@@ -24,6 +24,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -71,7 +72,7 @@ fun CompassRose(
             // --- Rotate everything so that "North" (azimuth=0) always points UP ---
             // The canvas rotates by -azimuth so that when device turns right (azimuth increases),
             // the compass rose rotates left, keeping the north mark at screen-top.
-            val rotRad = Math.toRadians((-azimuth).toDouble())
+            val rotDeg = -azimuth
 
             // ===== 1. OUTER COMPASS RING =====
             drawCircle(
@@ -81,6 +82,13 @@ fun CompassRose(
                 style = Stroke(width = 1.5f)
             )
 
+            // --- Rotate compass rose content (rings, ticks, labels, trajectory) by azimuth ---
+            // The north indicator arrow stays FIXED (outside this transform)
+            val canvasObj = drawContext.canvas
+
+            withTransform({
+                rotate(rotDeg, pivot = Offset(cx, cy))
+            }) {
             // ===== 2. CONCENTRIC RANGE RINGS (4 rings) =====
             for (i in 1..4) {
                 val r = radius * i / 5f
@@ -142,7 +150,6 @@ fun CompassRose(
                 textAlign = android.graphics.Paint.Align.CENTER
                 isFakeBoldText = true
             }
-            val canvasObj = drawContext.canvas
 
             for ((label, deg, isNorth) in cardinals) {
                 val angleRad = Math.toRadians(deg.toDouble())
@@ -234,27 +241,30 @@ fun CompassRose(
                 drawCircle(PrimaryFixedDim.copy(alpha = 0.6f), 2.5f, Offset(cx, cy))
             }
 
-            // ===== 8. NORTH INDICATOR (red triangle at TOP of screen) =====
-            // This does NOT rotate — always shows where "screen up" = device heading
-            val triSize = 14f
-            val triCy = cy - radius + 18f
+            } // END withTransform (rotate)
+
+            // ===== 8. NORTH INDICATOR (direction arrow — fixed at TOP, does NOT rotate) =====
+            // Large prominent heading arrow showing current phone direction
+            val triSize = 24f
+            val triCy = cy - radius + 22f
             val northPath = Path().apply {
                 moveTo(cx, triCy - triSize)
-                lineTo(cx - triSize * 0.65f, triCy + triSize * 0.3f)
-                lineTo(cx + triSize * 0.65f, triCy + triSize * 0.3f)
+                lineTo(cx - triSize * 0.6f, triCy + triSize * 0.4f)
+                lineTo(cx + triSize * 0.6f, triCy + triSize * 0.4f)
                 close()
             }
+            // Solid arrow (large, prominent)
             drawPath(northPath, Color(0xFFE86A33)) // Safety Orange-Red
 
-            // Small N label under triangle
+            // N label under triangle
             val nLabelPaint = android.graphics.Paint().apply {
                 color = android.graphics.Color.argb(255, 232, 106, 51)
-                textSize = 10f
+                textSize = 12f
                 isAntiAlias = true
                 textAlign = android.graphics.Paint.Align.CENTER
                 isFakeBoldText = true
             }
-            canvasObj.nativeCanvas.drawText("N", cx, triCy + triSize + 10f, nLabelPaint)
+            canvasObj.nativeCanvas.drawText("N", cx, triCy + triSize + 12f, nLabelPaint)
         }
 
         // Overlay info: top-right time area (for external composable to fill)
