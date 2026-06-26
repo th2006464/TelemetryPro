@@ -197,7 +197,26 @@ fun CompassRose(
                 )
             }
 
-            // --- Trajectory ---
+            
+            // --- Degree number labels at 30 deg intervals ---
+            val degLabelPaint = android.graphics.Paint().apply {
+                color = android.graphics.Color.argb(180, 208, 198, 171)
+                textSize = 11f
+                isAntiAlias = true
+                textAlign = android.graphics.Paint.Align.CENTER
+            }
+            for (deg in 0 until 360 step 30) {
+                if (deg % 90 == 0) continue
+                val angleRad = Math.toRadians(deg.toDouble())
+                val sinA = sin(angleRad).toFloat()
+                val cosA = cos(angleRad).toFloat()
+                val labelR = radius * 0.67f
+                val lx = cx + labelR * sinA
+                val ly = cy - labelR * cosA
+                canvasObj.nativeCanvas.drawText(deg.toString() + "\u00B0", lx, ly + 4f, degLabelPaint)
+            }
+            
+// --- Trajectory ---
             if (points.size >= 2) {
                 val current = points.last()
                 val latRad = Math.toRadians(current.latitude)
