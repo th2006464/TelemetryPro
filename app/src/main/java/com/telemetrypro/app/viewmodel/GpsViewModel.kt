@@ -11,7 +11,6 @@ import com.telemetrypro.app.data.GpsFixStatus
 import com.telemetrypro.app.data.GpsRepository
 import com.telemetrypro.app.data.LocationState
 import com.telemetrypro.app.data.NetworkCellInfoProvider
-import com.telemetrypro.app.data.OrientationSensorProvider
 import com.telemetrypro.app.data.TrackRepository
 import com.telemetrypro.app.data.TrackSession
 import kotlinx.coroutines.Dispatchers
@@ -29,7 +28,6 @@ class GpsViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = GpsRepository(application)
     val trackRepository = TrackRepository(application)
     val cellInfoProvider = NetworkCellInfoProvider(application)
-    val orientationProvider = OrientationSensorProvider(application)
     private val prefs = application.getSharedPreferences("telemetry_pro", Context.MODE_PRIVATE)
 
     private val _isOnlineMode = MutableStateFlow(
@@ -74,15 +72,11 @@ class GpsViewModel(application: Application) : AndroidViewModel(application) {
 
     private var lastRecordedTimestamp = 0L
 
-    /** Device compass azimuth (0=N, 90=E) from orientation sensor */
-    val azimuth: StateFlow<Float> = orientationProvider.azimuth
-
     init {
         try {
             repository.onlineMode = _isOnlineMode.value
             monitorNetwork(application)
             observeGpsForTracking()
-            orientationProvider.start()
         } catch (e: Exception) { }
     }
 
@@ -104,6 +98,17 @@ class GpsViewModel(application: Application) : AndroidViewModel(application) {
                         timestamp = locState.timestamp,
                         bearing = locState.bearing
                     )
+                    // Also feed backtrack trail if active
+                    if (trackRepository.isBacktracking.value) {
+                        trackRepository.appendBacktrackPoint(
+                            latitude = locState.latitude,
+                            longitude = locState.longitude,
+                            altitude = locState.altitudeMeters,
+                            speedKmh = locState.speedKmh,
+                            accuracy = locState.accuracy,
+                            timestamp = locState.timestamp
+                        )
+                    }
                 }
             }
         }
@@ -179,6 +184,31 @@ class GpsViewModel(application: Application) : AndroidViewModel(application) {
         trackRepository.stopRecording()
     }
 
+    fun markWaypoint(label: String) {
+        val s = state.value
+        if (s.fixStatus == GpsFixStatus.FIXED && s.latitude != 0.0 && s.longitude != 0.0) {
+            trackRepository.markWaypoint(
+                latitude = s.latitude,
+                longitude = s.longitude,
+                altitude = s.altitudeMeters,
+                accuracy = s.accuracy,
+                timestamp = System.currentTimeMillis(),
+                label = label
+            )
+        }
+    }
+
+    fun startBacktrack(sessionId: Long, reversed: Boolean) {
+        val s = state.value
+        if (s.fixStatus == GpsFixStatus.FIXED && s.latitude != 0.0 && s.longitude != 0.0) {
+            trackRepository.startBacktrack(sessionId, reversed)
+        }
+    }
+
+    fun stopBacktrack() {
+        trackRepository.stopBacktrack()
+    }
+
     fun deleteSession(sessionId: Long) {
         trackRepository.deleteSession(sessionId)
     }
@@ -199,6 +229,5 @@ class GpsViewModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() {
         super.onCleared()
         stopMonitoring()
-        orientationProvider.stop()
     }
 }
