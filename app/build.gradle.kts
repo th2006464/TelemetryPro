@@ -1,4 +1,4 @@
-import java.util.Properties
+﻿import java.util.Properties
 
 plugins {
     id("com.android.application")
@@ -31,8 +31,8 @@ android {
         applicationId = "com.telemetrypro.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 23
-        versionName = "1.9.03"
+        versionCode = 24
+        versionName = "1.10.0-pre"
 
         vectorDrawables {
             useSupportLibrary = true
