@@ -23,6 +23,10 @@ class OrientationSensorProvider(private val context: Context) {
 
     private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
 
+    // EMA smoothing state
+    private var smoothedAzimuth: Float = 0f
+    private var smoothInitialized = false
+
     private val _azimuth = MutableStateFlow(0f)
     val azimuth: StateFlow<Float> = _azimuth.asStateFlow()
 
@@ -58,7 +62,7 @@ class OrientationSensorProvider(private val context: Context) {
                     var az = it[0]
                     // Normalize to 0-360
                     az = ((az % 360f) + 360f) % 360f
-                    _azimuth.value = az
+                    _azimuth.value = smoothAzimuth(az)
                 }
             }
         }
@@ -126,6 +130,39 @@ class OrientationSensorProvider(private val context: Context) {
         // Convert to degrees [0, 360), clockwise from North
         var azimuthDeg = Math.toDegrees(orientation[0].toDouble()).toFloat()
         azimuthDeg = ((azimuthDeg % 360f) + 360f) % 360f
-        _azimuth.value = azimuthDeg
+        _azimuth.value = smoothAzimuth(azimuthDeg)
+    }
+
+    /**
+     * Exponential Moving Average (EMA) filter with circular wrap-around handling.
+     * Smooths out sensor noise to prevent compass jitter when device is still.
+     *
+     * - alpha: smoothing factor (0.15 = heavy smoothing, responsive but dampened)
+     * - deadZone: changes smaller than this (in degrees) are ignored entirely
+     */
+    private fun smoothAzimuth(raw: Float): Float {
+        if (!smoothInitialized) {
+            smoothedAzimuth = raw
+            smoothInitialized = true
+            return raw
+        }
+
+        val deadZone = 0.5f
+        var delta = raw - smoothedAzimuth
+
+        // Handle wrap-around at 0/360 boundary
+        if (delta > 180f) delta -= 360f
+        if (delta < -180f) delta += 360f
+
+        // Dead zone: ignore tiny fluctuations when phone is still
+        if (abs(delta) < deadZone) return smoothedAzimuth
+
+        // EMA smoothing
+        val alpha = 0.15f
+        smoothedAzimuth += alpha * delta
+
+        // Normalize back to [0, 360)
+        smoothedAzimuth = ((smoothedAzimuth % 360f) + 360f) % 360f
+        return smoothedAzimuth
     }
 }

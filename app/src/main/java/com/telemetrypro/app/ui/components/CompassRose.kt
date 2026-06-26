@@ -138,14 +138,14 @@ fun CompassRose(
             )
 
             val labelPaint = android.graphics.Paint().apply {
-                color = android.graphics.Color.argb(180, 208, 198, 171)
-                textSize = 11f
+                color = android.graphics.Color.argb(200, 208, 198, 171)
+                textSize = 16f
                 isAntiAlias = true
                 textAlign = android.graphics.Paint.Align.CENTER
             }
             val labelPaintHighlight = android.graphics.Paint().apply {
                 color = android.graphics.Color.argb(255, 239, 108, 68)  // Safety Orange for North
-                textSize = 13f
+                textSize = 18f
                 isAntiAlias = true
                 textAlign = android.graphics.Paint.Align.CENTER
                 isFakeBoldText = true
@@ -223,12 +223,12 @@ fun CompassRose(
                         lineTo(visibleOffsets[i].x, visibleOffsets[i].y)
                     }
                 }
-                drawPath(path, Secondary.copy(alpha = 0.75f), style = Stroke(width = 2.5f))
+                drawPath(path, Color(0xFFFFC107), style = Stroke(width = 3f))
 
                 // Start point
                 val startPos = visibleOffsets.first()
-                drawCircle(Secondary.copy(alpha = 0.25f), 8f, startPos)
-                drawCircle(Secondary, 4f, startPos)
+                drawCircle(Color(0xFFFFC107).copy(alpha = 0.25f), 8f, startPos)
+                drawCircle(Color(0xFFFFC107), 4f, startPos)
             }
 
             // ===== 7. CENTER DOT (current position) =====
