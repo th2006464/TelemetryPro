@@ -1,4 +1,4 @@
-package com.telemetrypro.app.data
+﻿package com.telemetrypro.app.data
 
 import android.content.Context
 import android.hardware.Sensor
@@ -17,7 +17,7 @@ import kotlin.math.*
  * getOrientation for reliable heading, with fallback to TYPE_ORIENTATION
  * (deprecated but widely available).
  *
- * Azimuth: 0° = North, 90° = East, 180° = South, 270° = West (clockwise from North)
+ * Azimuth: 0 deg = North, 90 deg = East, 180 deg = South, 270 deg = West (clockwise from North)
  */
 class OrientationSensorProvider(private val context: Context) {
 
@@ -26,6 +26,10 @@ class OrientationSensorProvider(private val context: Context) {
     // EMA smoothing state
     private var smoothedAzimuth: Float = 0f
     private var smoothInitialized = false
+
+    // Motion detection: detect when phone is being moved via accel magnitude deviation from gravity
+    private val GRAVITY_EARTH = 9.80665f
+    private val MOTION_THRESHOLD = 2.5f  // m/s^2 deviation = phone is being moved
 
     private val _azimuth = MutableStateFlow(0f)
     val azimuth: StateFlow<Float> = _azimuth.asStateFlow()
@@ -58,9 +62,7 @@ class OrientationSensorProvider(private val context: Context) {
         override fun onSensorChanged(event: SensorEvent?) {
             event?.values?.let {
                 if (it.size > 0) {
-                    // values[0] = azimuth (heading), range [0, 360)
                     var az = it[0]
-                    // Normalize to 0-360
                     az = ((az % 360f) + 360f) % 360f
                     _azimuth.value = smoothAzimuth(az)
                 }
@@ -78,7 +80,6 @@ class OrientationSensorProvider(private val context: Context) {
             return
         }
 
-        // Try accelerometer + magnetometer fusion first (accurate)
         val accel = sm.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
         val mag = sm.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
 
@@ -88,7 +89,6 @@ class OrientationSensorProvider(private val context: Context) {
             useFallback = false
             _available.value = true
         } else {
-            // Fallback to deprecated TYPE_ORIENTATION
             val orient = sm.getDefaultSensor(Sensor.TYPE_ORIENTATION)
             if (orient != null) {
                 sm.registerListener(orientationListener, orient, SensorManager.SENSOR_DELAY_UI)
@@ -112,7 +112,7 @@ class OrientationSensorProvider(private val context: Context) {
 
     /** Compute fused azimuth from accel + magnetometer */
     private fun computeFusedAzimuth() {
-        if (useFallback) return // fallback handles itself
+        if (useFallback) return
 
         val acc = accelValues ?: return
         val mag = magValues ?: return
@@ -126,19 +126,21 @@ class OrientationSensorProvider(private val context: Context) {
         val orientation = FloatArray(3)
         SensorManager.getOrientation(R, orientation)
 
-        // orientation[0] = azimuth in radians, range [-π, +π]
-        // Convert to degrees [0, 360), clockwise from North
         var azimuthDeg = Math.toDegrees(orientation[0].toDouble()).toFloat()
         azimuthDeg = ((azimuthDeg % 360f) + 360f) % 360f
         _azimuth.value = smoothAzimuth(azimuthDeg)
     }
 
     /**
-     * Exponential Moving Average (EMA) filter with circular wrap-around handling.
-     * Smooths out sensor noise to prevent compass jitter when device is still.
+     * Adaptive EMA filter with motion-aware dead zone and rate limiting.
      *
-     * - alpha: smoothing factor (0.15 = heavy smoothing, responsive but dampened)
-     * - deadZone: changes smaller than this (in degrees) are ignored entirely
+     * Key ideas:
+     * 1. Detect phone motion via accelerometer magnitude deviating from gravity.
+     *    When moving, the rotation matrix is corrupted by linear acceleration,
+     *    so we nearly freeze the heading to prevent jitter.
+     * 2. When stationary, use a generous dead zone (1 degree) to hide the
+     *    slight magnetic noise that causes 0.5-1 degree wobble on a flat table.
+     * 3. Clamp per-frame delta to prevent spurious jumps during transition.
      */
     private fun smoothAzimuth(raw: Float): Float {
         if (!smoothInitialized) {
@@ -147,21 +149,36 @@ class OrientationSensorProvider(private val context: Context) {
             return raw
         }
 
-        val deadZone = 0.5f
         var delta = raw - smoothedAzimuth
 
         // Handle wrap-around at 0/360 boundary
         if (delta > 180f) delta -= 360f
         if (delta < -180f) delta += 360f
 
-        // Dead zone: ignore tiny fluctuations when phone is still
-        if (abs(delta) < deadZone) return smoothedAzimuth
+        // Detect motion from accelerometer magnitude
+        val isMoving = accelValues?.let { acc ->
+            val mag = sqrt(acc[0] * acc[0] + acc[1] * acc[1] + acc[2] * acc[2])
+            abs(mag - GRAVITY_EARTH) > MOTION_THRESHOLD
+        } ?: false
 
-        // EMA smoothing
-        val alpha = 0.15f
-        smoothedAzimuth += alpha * delta
+        if (isMoving) {
+            // --- IN MOTION (e.g. pickup from table) ---
+            // Linear acceleration corrupts the rotation matrix -> wild azimuth jumps.
+            // Nearly freeze the heading until the phone is still again.
+            val alpha = 0.008f
+            val maxFrameChange = 0.8f
+            delta = delta.coerceIn(-maxFrameChange, maxFrameChange)
+            smoothedAzimuth += alpha * delta
+        } else {
+            // --- STATIONARY (flat on table, held steady) ---
+            // Dead zone absorbs slight magnetic / sensor noise
+            val deadZone = 1.0f
+            if (abs(delta) < deadZone) return smoothedAzimuth
 
-        // Normalize back to [0, 360)
+            val alpha = 0.10f
+            smoothedAzimuth += alpha * delta
+        }
+
         smoothedAzimuth = ((smoothedAzimuth % 360f) + 360f) % 360f
         return smoothedAzimuth
     }
