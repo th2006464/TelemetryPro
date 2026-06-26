@@ -1,10 +1,12 @@
-﻿package com.telemetrypro.app.data
+package com.telemetrypro.app.data
 
 import android.content.Context
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.view.Surface
+import android.view.WindowManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -13,11 +15,13 @@ import kotlin.math.*
 /**
  * Provides device azimuth (compass heading) using Android SensorManager.
  *
- * Uses accelerometer + magnetic field sensor fusion via getRotationMatrix +
- * getOrientation for reliable heading, with fallback to TYPE_ORIENTATION
- * (deprecated but widely available).
+ * Uses accelerometer + magnetic field sensor fusion via getRotationMatrix.
+ * Implements tilt-aware azimuth calculation:
+ * - When phone is flat (screen up): standard getOrientation (Y-axis projection)
+ * - When phone is upright (like holding a compass): Z-axis projection + 180°
+ * - Smooth blend between the two modes for seamless transition
  *
- * Azimuth: 0 deg = North, 90 deg = East, 180 deg = South, 270 deg = West (clockwise from North)
+ * Azimuth: 0° = North, 90° = East, 180° = South, 270° = West (clockwise from North)
  */
 class OrientationSensorProvider(private val context: Context) {
 
@@ -27,9 +31,8 @@ class OrientationSensorProvider(private val context: Context) {
     private var smoothedAzimuth: Float = 0f
     private var smoothInitialized = false
 
-    // Motion detection: detect when phone is being moved via accel magnitude deviation from gravity
     private val GRAVITY_EARTH = 9.80665f
-    private val MOTION_THRESHOLD = 2.5f  // m/s^2 deviation = phone is being moved
+    private val MOTION_THRESHOLD = 2.5f
 
     private val _azimuth = MutableStateFlow(0f)
     val azimuth: StateFlow<Float> = _azimuth.asStateFlow()
@@ -37,7 +40,6 @@ class OrientationSensorProvider(private val context: Context) {
     private val _available = MutableStateFlow(false)
     val available: StateFlow<Boolean> = _available.asStateFlow()
 
-    // Sensor fusion buffers
     private var accelValues: FloatArray? = null
     private var magValues: FloatArray? = null
 
@@ -73,7 +75,6 @@ class OrientationSensorProvider(private val context: Context) {
 
     private var useFallback = false
 
-    /** Start listening for orientation updates */
     fun start() {
         val sm = sensorManager ?: run {
             _available.value = false
@@ -100,7 +101,6 @@ class OrientationSensorProvider(private val context: Context) {
         }
     }
 
-    /** Stop listening to conserve battery */
     fun stop() {
         sensorManager?.let { sm ->
             sm.unregisterListener(accelListener)
@@ -110,7 +110,28 @@ class OrientationSensorProvider(private val context: Context) {
         _available.value = false
     }
 
-    /** Compute fused azimuth from accel + magnetometer */
+    /** Get current display rotation */
+    private fun getDisplayRotation(): Int {
+        return try {
+            val wm = context.getSystemService(Context.WINDOW_SERVICE) as? WindowManager
+            wm?.defaultDisplay?.rotation ?: Surface.ROTATION_0
+        } catch (e: Exception) {
+            Surface.ROTATION_0
+        }
+    }
+
+    /**
+     * Compute fused azimuth from accel + magnetometer with tilt-aware correction.
+     *
+     * Key insight: SensorManager.getOrientation() computes azimuth as the angle of
+     * the device's Y-axis projected onto the horizontal plane. When the phone is
+     * held upright (like a compass), the Y-axis points up, making this projection
+     * near-zero and unreliable — producing a ~180° error.
+     *
+     * Fix: When the phone is upright, compute azimuth from the device's Z-axis
+     * (out of screen) projected onto the horizontal plane, plus 180° to get the
+     * direction the top of the phone points.
+     */
     private fun computeFusedAzimuth() {
         if (useFallback) return
 
@@ -123,24 +144,51 @@ class OrientationSensorProvider(private val context: Context) {
         val success = SensorManager.getRotationMatrix(R, I, acc, mag)
         if (!success) return
 
-        val orientation = FloatArray(3)
-        SensorManager.getOrientation(R, orientation)
+        // Remap based on display rotation
+        val rotation = getDisplayRotation()
+        val R2 = FloatArray(9)
+        when (rotation) {
+            Surface.ROTATION_0 ->
+                SensorManager.remapCoordinateSystem(R, SensorManager.AXIS_X, SensorManager.AXIS_Y, R2)
+            Surface.ROTATION_90 ->
+                SensorManager.remapCoordinateSystem(R, SensorManager.AXIS_Y, SensorManager.AXIS_MINUS_X, R2)
+            Surface.ROTATION_180 ->
+                SensorManager.remapCoordinateSystem(R, SensorManager.AXIS_MINUS_X, SensorManager.AXIS_MINUS_Y, R2)
+            Surface.ROTATION_270 ->
+                SensorManager.remapCoordinateSystem(R, SensorManager.AXIS_MINUS_Y, SensorManager.AXIS_X, R2)
+            else -> R.copyInto(R2)
+        }
 
-        var azimuthDeg = Math.toDegrees(orientation[0].toDouble()).toFloat()
+        // R2[8] = Z-component of device Z-axis in world coords
+        // ≈ 1 when flat (screen up), ≈ 0 when upright, ≈ -1 when screen down
+        val tilt = abs(R2[8])
+
+        // Two azimuth estimates:
+        // yAz: standard — angle of device Y-axis (top) in horizontal plane
+        // zAz: upright — angle of device Z-axis (screen) + 180° = direction top points
+        val yAz = atan2(R2[1], R2[4])
+        val zAz = atan2(R2[2], R2[5]) + Math.PI.toFloat()
+
+        // Blend: when flat (tilt→1), use yAz; when upright (tilt→0), use zAz
+        val blend = (0.5f - tilt).coerceIn(0f, 1f) * 2f
+        val azRad = lerpAngleRad(yAz, zAz, blend)
+
+        var azimuthDeg = Math.toDegrees(azRad.toDouble()).toFloat()
         azimuthDeg = ((azimuthDeg % 360f) + 360f) % 360f
         _azimuth.value = smoothAzimuth(azimuthDeg)
     }
 
+    /** Circular linear interpolation between two angles in radians */
+    private fun lerpAngleRad(a: Float, b: Float, t: Float): Float {
+        var diff = b - a
+        // Wrap to [-PI, PI]
+        while (diff > Math.PI.toFloat()) diff -= 2f * Math.PI.toFloat()
+        while (diff < -Math.PI.toFloat()) diff += 2f * Math.PI.toFloat()
+        return a + t * diff
+    }
+
     /**
      * Adaptive EMA filter with motion-aware dead zone and rate limiting.
-     *
-     * Key ideas:
-     * 1. Detect phone motion via accelerometer magnitude deviating from gravity.
-     *    When moving, the rotation matrix is corrupted by linear acceleration,
-     *    so we nearly freeze the heading to prevent jitter.
-     * 2. When stationary, use a generous dead zone (1 degree) to hide the
-     *    slight magnetic noise that causes 0.5-1 degree wobble on a flat table.
-     * 3. Clamp per-frame delta to prevent spurious jumps during transition.
      */
     private fun smoothAzimuth(raw: Float): Float {
         if (!smoothInitialized) {
@@ -151,30 +199,22 @@ class OrientationSensorProvider(private val context: Context) {
 
         var delta = raw - smoothedAzimuth
 
-        // Handle wrap-around at 0/360 boundary
         if (delta > 180f) delta -= 360f
         if (delta < -180f) delta += 360f
 
-        // Detect motion from accelerometer magnitude
         val isMoving = accelValues?.let { acc ->
             val mag = sqrt(acc[0] * acc[0] + acc[1] * acc[1] + acc[2] * acc[2])
             abs(mag - GRAVITY_EARTH) > MOTION_THRESHOLD
         } ?: false
 
         if (isMoving) {
-            // --- IN MOTION (e.g. pickup from table) ---
-            // Linear acceleration corrupts the rotation matrix -> wild azimuth jumps.
-            // Nearly freeze the heading until the phone is still again.
             val alpha = 0.008f
             val maxFrameChange = 0.8f
             delta = delta.coerceIn(-maxFrameChange, maxFrameChange)
             smoothedAzimuth += alpha * delta
         } else {
-            // --- STATIONARY (flat on table, held steady) ---
-            // Dead zone absorbs slight magnetic / sensor noise
             val deadZone = 1.0f
             if (abs(delta) < deadZone) return smoothedAzimuth
-
             val alpha = 0.10f
             smoothedAzimuth += alpha * delta
         }
