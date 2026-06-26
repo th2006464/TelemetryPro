@@ -69,6 +69,7 @@ private fun MainApp() {
     val nmeaLoggingEnabled by viewModel.nmeaLoggingEnabled.collectAsStateWithLifecycle()
     val cellInfo by viewModel.cellInfoProvider.cellInfo.collectAsStateWithLifecycle()
     val coordFormatDms by viewModel.coordFormatDms.collectAsStateWithLifecycle()
+    val azimuth by viewModel.azimuth.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -148,6 +149,7 @@ private fun MainApp() {
                     isRecording = isRecording,
                     distanceKm = recordingDistanceKm,
                     sessions = sessions,
+                    azimuth = azimuth,
                     onStartRecording = { name -> viewModel.startRecording(name) },
                     onStopRecording = { viewModel.stopRecording() },
                     onDeleteSession = { id -> viewModel.deleteSession(id) },

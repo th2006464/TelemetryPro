@@ -4,11 +4,28 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,8 +42,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.telemetrypro.app.LocaleHelper
 import com.telemetrypro.app.data.LocationState
-import com.telemetrypro.app.data.TrackSession
 import com.telemetrypro.app.data.TrackPoint
+import com.telemetrypro.app.data.TrackSession
+import com.telemetrypro.app.ui.components.CompassInfoBar
+import com.telemetrypro.app.ui.components.CompassRose
 import com.telemetrypro.app.ui.components.NmeaFeed
 import com.telemetrypro.app.ui.theme.*
 import kotlin.math.*
@@ -37,6 +56,7 @@ fun RecordScreen(
     isRecording: Boolean,
     distanceKm: Double,
     sessions: List<TrackSession>,
+    azimuth: Float = 0f,           // device heading from orientation sensor
     onStartRecording: (String) -> Unit,
     onStopRecording: () -> Unit,
     onDeleteSession: (Long) -> Unit,
@@ -45,42 +65,109 @@ fun RecordScreen(
 ) {
     val context = LocalContext.current
     val isZh = LocaleHelper.isZh(context)
-    var showNameDialog by remember { mutableStateOf(false) }
-    var sessionName by remember { mutableStateOf("") }
+
+    // Sub-tab state: 0 = 记录 (Record), 1 = 回溯 (Playback)
+    var selectedSubTab by remember { mutableIntStateOf(0) }
 
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(Background)
-            .verticalScroll(rememberScrollState())
     ) {
-        Spacer(Modifier.height(8.dp))
-
-        // NMEA raw data stream — moved from TrendsScreen
-        NmeaFeed(
-            lines = state.nmeaLogLines,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-        )
-
-        // NMEA explanation card
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 4.dp)
-                .background(PrimaryContainer.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
-                .border(1.dp, PrimaryContainer.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
-                .padding(12.dp)
+        // Tab bar
+        TabRow(
+            selectedTabIndex = selectedSubTab,
+            containerColor = SurfaceContainerLow,
+            contentColor = OnSurfaceVariant,
+            indicator = {},
+            divider = {}
         ) {
-            Text(
-                "NMEA 0183 是 GNSS 接收器输出的标准数据协议。每行以 \$ 开头，包含定位、卫星、时间等原始信息。例如 \$GPGGA 包含经纬度、海拔、卫星数；\$GPVTG 包含地面速度和方向。本应用通过系统 NMEA 监听器实时捕获这些数据用于分析。",
-                style = CodeSm,
-                color = OnSurfaceVariant.copy(alpha = 0.7f)
+            val tabs = listOf(
+                if (isZh) "记录" else "RECORD",
+                if (isZh) "回溯" else "PLAYBACK"
             )
+            tabs.forEachIndexed { index, title ->
+                Tab(
+                    selected = selectedSubTab == index,
+                    onClick = { selectedSubTab = index },
+                    text = {
+                        Text(
+                            title,
+                            style = LabelCaps.copy(
+                                color = if (selectedSubTab == index) PrimaryFixedDim
+                                        else OnSurfaceVariant.copy(alpha = 0.5f),
+                                fontWeight = if (selectedSubTab == index) FontWeight.Bold else FontWeight.Normal
+                            )
+                        )
+                    }
+                )
+            }
         }
 
+        when (selectedSubTab) {
+            0 -> RecordingTab(
+                state = state,
+                isRecording = isRecording,
+                distanceKm = distanceKm,
+                azimuth = azimuth,
+                sessions = sessions,
+                onStartRecording = onStartRecording,
+                onStopRecording = onStopRecording
+            )
+            1 -> PlaybackTab(
+                sessions = sessions,
+                azimuth = azimuth,
+                onDelete = onDeleteSession,
+                onRename = onRenameSession
+            )
+        }
+    }
+}
+
+// ============================================================
+// TAB 0: RECORDING — Live compass + controls
+// ============================================================
+
+@Composable
+private fun RecordingTab(
+    state: LocationState,
+    isRecording: Boolean,
+    distanceKm: Double,
+    azimuth: Float,
+    sessions: List<TrackSession>,
+    onStartRecording: (String) -> Unit,
+    onStopRecording: () -> Unit
+) {
+    val context = LocalContext.current
+    val isZh = LocaleHelper.isZh(context)
+
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Spacer(Modifier.height(8.dp))
 
-        // Recording control card
+        // ===== COMPASS ROSE (main feature) =====
+        CompassRose(
+            points = if (isRecording) state.recordingPoints else emptyList(),
+            azimuth = azimuth,
+            showCenterDot = isRecording && state.recordingPoints.isNotEmpty(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+        )
+
+        // ===== INFO BAR below compass =====
+        CompassInfoBar(
+            bearingText = if (state.recordingPoints.isNotEmpty()) {
+                state.recordingPoints.last().compassShort
+            } else "---",
+            altitudeText = "${state.altitudeMeters.toInt()}m",
+            speedText = "${String.format("%.0f", state.speedKmh)} km/h",
+            distanceText = if (isRecording) "${String.format("%.2f", distanceKm)} km" else "",
+            isRecording = isRecording
+        )
+
+        Spacer(Modifier.height(12.dp))
+
+        // ===== RECORDING CONTROL CARD =====
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -114,10 +201,7 @@ fun RecordScreen(
                             if (inputName.isEmpty()) {
                                 Text(
                                     if (isZh) "输入记录名称…" else "Enter session name…",
-                                    style = TextStyle(
-                                        fontFamily = JetBrainsMonoFamily,
-                                        fontSize = 14.sp
-                                    ),
+                                    style = TextStyle(fontFamily = JetBrainsMonoFamily, fontSize = 14.sp),
                                     color = OnSurfaceVariant.copy(alpha = 0.4f)
                                 )
                             }
@@ -125,9 +209,7 @@ fun RecordScreen(
                                 value = inputName,
                                 onValueChange = { inputName = it },
                                 textStyle = TextStyle(
-                                    fontFamily = JetBrainsMonoFamily,
-                                    fontSize = 14.sp,
-                                    color = OnSurface
+                                    fontFamily = JetBrainsMonoFamily, fontSize = 14.sp, color = OnSurface
                                 ),
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth()
@@ -136,10 +218,7 @@ fun RecordScreen(
                         Spacer(Modifier.width(12.dp))
                         Box(
                             modifier = Modifier
-                                .background(
-                                    PrimaryContainer.copy(alpha = 0.2f),
-                                    RoundedCornerShape(8.dp)
-                                )
+                                .background(PrimaryContainer.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
                                 .border(1.dp, PrimaryFixedDim, RoundedCornerShape(8.dp))
                                 .clickable {
                                     onStartRecording(inputName.ifBlank {
@@ -157,7 +236,7 @@ fun RecordScreen(
                         }
                     }
                 } else {
-                    // Recording active: show status + stop button
+                    // Active recording status + stop
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -171,26 +250,18 @@ fun RecordScreen(
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                "${String.format("%.2f", distanceKm)} km",
-                                style = DisplayData,
-                                color = PrimaryFixedDim
+                                "${String.format("%.2f", distanceKm)} km · ${state.recordingPoints.size} pts",
+                                style = CodeSm,
+                                color = OnSurfaceVariant.copy(alpha = 0.6f)
                             )
-                            Row {
+                            val lastPt = state.recordingPoints.lastOrNull()
+                            if (lastPt != null) {
                                 Text(
-                                    "${state.recordingPoints.size} pts",
+                                    if (isZh) "方向 ${lastPt.compassDirection} · ${lastPt.bearing.toInt()}°"
+                                    else "HDG ${lastPt.compassShort} · ${lastPt.bearing.toInt()}°",
                                     style = CodeSm,
-                                    color = OnSurfaceVariant.copy(alpha = 0.6f)
+                                    color = Secondary
                                 )
-                                Spacer(Modifier.width(12.dp))
-                                val lastPt = state.recordingPoints.lastOrNull()
-                                if (lastPt != null) {
-                                    Text(
-                                        if (isZh) "方向 ${lastPt.compassDirection} · ${lastPt.bearing.toInt()}°"
-                                        else "HDG ${lastPt.compassShort} · ${lastPt.bearing.toInt()}°",
-                                        style = CodeSm,
-                                        color = Secondary
-                                    )
-                                }
                             }
                         }
                         Box(
@@ -208,178 +279,152 @@ fun RecordScreen(
                         }
                     }
                 }
-
-                // Navigation-style mini radar: square, current position centered, bearing arrow
-                if (isRecording && state.recordingPoints.isNotEmpty()) {
-                    Spacer(Modifier.height(12.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Center
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(200.dp)
-                                .background(SurfaceContainerLowest, RoundedCornerShape(8.dp))
-                                .border(1.dp, OutlineVariant.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
-                        ) {
-                            Canvas(modifier = Modifier.fillMaxSize().padding(4.dp)) {
-                                val pts = state.recordingPoints
-                                if (pts.isEmpty()) return@Canvas
-
-                                val current = pts.last()
-                                val cw = size.width
-                                val ch = size.height
-                                val cx = cw / 2f
-                                val cy = ch / 2f
-
-                                // Fixed scale: show ~200m radius around current position.
-                                // meters-per-pixel adjusted by latitude (cosine correction for longitude).
-                                val latRad = Math.toRadians(current.latitude)
-                                val metersPerPixel = 0.5f  // 0.5 m/px → ~100m radius visible
-                                fun project(lat: Double, lng: Double): Offset {
-                                    val dLatM = (lat - current.latitude) * 111320.0
-                                    val dLngM = (lng - current.longitude) * 111320.0 * kotlin.math.cos(latRad)
-                                    val px = cx + (dLngM / metersPerPixel).toFloat()
-                                    val py = cy - (dLatM / metersPerPixel).toFloat()
-                                    return Offset(px, py)
-                                }
-
-                                // Range rings (50m, 100m)
-                                val ring50 = (50f / metersPerPixel)
-                                val ring100 = (100f / metersPerPixel)
-                                drawCircle(
-                                    color = OnSurfaceVariant.copy(alpha = 0.15f),
-                                    radius = ring50,
-                                    center = Offset(cx, cy),
-                                    style = Stroke(1f)
-                                )
-                                drawCircle(
-                                    color = OnSurfaceVariant.copy(alpha = 0.1f),
-                                    radius = ring100,
-                                    center = Offset(cx, cy),
-                                    style = Stroke(1f)
-                                )
-
-                                // Cross hair
-                                drawLine(OnSurfaceVariant.copy(alpha = 0.2f), Offset(0f, cy), Offset(cw, cy), 1f)
-                                drawLine(OnSurfaceVariant.copy(alpha = 0.2f), Offset(cx, 0f), Offset(cx, ch), 1f)
-
-                                // Cardinal labels (N/E/S/W) — small text
-                                val labelColor = OnSurfaceVariant.copy(alpha = 0.5f)
-                                val cardPaint = android.graphics.Paint().apply {
-                                    color = android.graphics.Color.argb(130, 208, 198, 171)
-                                    textSize = 11f
-                                    isAntiAlias = true
-                                }
-                                val canvasObj = drawContext.canvas
-                                canvasObj.nativeCanvas.drawText("N", cx - 4f, 14f, cardPaint)
-                                canvasObj.nativeCanvas.drawText("S", cx - 4f, ch - 4f, cardPaint)
-                                canvasObj.nativeCanvas.drawText("E", cw - 12f, cy + 4f, cardPaint)
-                                canvasObj.nativeCanvas.drawText("W", 4f, cy + 4f, cardPaint)
-
-                                // Draw trail (only points within visible range)
-                                val visibleOffsets = pts.map { project(it.latitude, it.longitude) }
-                                if (visibleOffsets.size >= 2) {
-                                    val path = Path().apply {
-                                        moveTo(visibleOffsets[0].x, visibleOffsets[0].y)
-                                        for (i in 1 until visibleOffsets.size) {
-                                            lineTo(visibleOffsets[i].x, visibleOffsets[i].y)
-                                        }
-                                    }
-                                    drawPath(path, Secondary.copy(alpha = 0.7f), style = Stroke(width = 2.5f))
-                                }
-
-                                // Start point marker (only if within canvas)
-                                val startPos = visibleOffsets.first()
-                                if (startPos.x in 0f..cw && startPos.y in 0f..ch) {
-                                    drawCircle(Secondary.copy(alpha = 0.3f), 8f, startPos)
-                                    drawCircle(Secondary, 4f, startPos)
-                                }
-
-                                // Current position: large bearing arrow centered
-                                val bearingRad = Math.toRadians(current.bearing.toDouble())
-                                // Arrow points "up" (north) by default, rotate by bearing clockwise.
-                                // Screen Y is down, so rotate: angle from up = bearing.
-                                val arrowLen = 24f
-                                val arrowHead = 8f
-                                // Tip of arrow (in direction of bearing)
-                                val tipX = cx + (arrowLen * kotlin.math.sin(bearingRad)).toFloat()
-                                val tipY = cy - (arrowLen * kotlin.math.cos(bearingRad)).toFloat()
-                                // Tail
-                                val tailX = cx - (arrowLen * 0.4 * kotlin.math.sin(bearingRad)).toFloat()
-                                val tailY = cy + (arrowLen * 0.4 * kotlin.math.cos(bearingRad)).toFloat()
-
-                                // Arrow shaft (thick line)
-                                drawLine(PrimaryFixedDim, Offset(tailX, tailY), Offset(tipX, tipY), 3f)
-
-                                // Arrowhead (triangle)
-                                val perpX = kotlin.math.cos(bearingRad).toFloat()
-                                val perpY = kotlin.math.sin(bearingRad).toFloat()
-                                val headPath = Path().apply {
-                                    moveTo(tipX, tipY)
-                                    lineTo(tipX - arrowHead * kotlin.math.sin(bearingRad - 0.4).toFloat(),
-                                           tipY + arrowHead * kotlin.math.cos(bearingRad - 0.4).toFloat())
-                                    lineTo(tipX - arrowHead * kotlin.math.sin(bearingRad + 0.4).toFloat(),
-                                           tipY + arrowHead * kotlin.math.cos(bearingRad + 0.4).toFloat())
-                                    close()
-                                }
-                                drawPath(headPath, PrimaryFixed)
-
-                                // Center dot (current position)
-                                drawCircle(PrimaryFixedDim, 3f, Offset(cx, cy))
-                            }
-                        }
-                    }
-                }
             }
         }
 
-        Spacer(Modifier.height(12.dp))
-
-        // Session history
-        if (sessions.isNotEmpty()) {
-            Text(
-                if (isZh) "历史记录" else "SESSION HISTORY",
-                style = LabelCaps,
-                color = OnSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-            )
-
-            sessions.forEach { session ->
-                SessionCard(
-                    session = session,
-                    onDelete = { onDeleteSession(session.id) },
-                    onRename = { newName -> onRenameSession(session.id, newName) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp)
-                )
-            }
-        } else if (!isRecording) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(32.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    if (isZh) "暂无记录，点击上方开始测距" else "No sessions yet. Start tracking above.",
-                    style = CodeSm,
-                    color = OnSurfaceVariant.copy(alpha = 0.4f)
-                )
-            }
-        }
+        // ===== NMEA SECTION (collapsed in recording tab) =====
+        NmeaFeed(
+            lines = state.nmeaLogLines,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+        )
 
         Spacer(Modifier.height(80.dp))
     }
 }
 
+// ============================================================
+// TAB 1: PLAYBACK — Session list with compass preview
+// ============================================================
+
 @Composable
-private fun SessionCard(
+private fun PlaybackTab(
+    sessions: List<TrackSession>,
+    azimuth: Float,
+    onDelete: (Long) -> Unit,
+    onRename: (Long, String) -> Unit
+) {
+    val context = LocalContext.current
+    val isZh = LocaleHelper.isZh(context)
+
+    // Selected session for compass view (-1 = none)
+    var selectedSessionId by remember { mutableLongStateOf(-1L) }
+    val selectedSession = sessions.find { it.id == selectedSessionId }
+
+    if (sessions.isEmpty()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(32.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                if (isZh) "暂无轨迹记录" else "No track records yet.",
+                style = CodeSm,
+                color = OnSurfaceVariant.copy(alpha = 0.4f)
+            )
+        }
+        return
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(bottom = 80.dp)
+    ) {
+        // Compass preview for selected session (or latest)
+        item {
+            val displaySession = selectedSession ?: sessions.first()
+            val hasSelection = selectedSession != null
+
+            Column(modifier = Modifier.padding(top = 8.dp)) {
+                Text(
+                    if (hasSelection) displaySession.name.ifBlank { if (isZh) "记录" else "Track" }
+                    else (if (isZh) "最近记录" else "Latest Record"),
+                    style = TelemetryMd,
+                    color = PrimaryFixedDim,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                )
+
+                CompassRose(
+                    points = displaySession.points,
+                    azimuth = azimuth,
+                    showCenterDot = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                )
+
+                // Session info under compass
+                val lastPt = displaySession.points.lastOrNull()
+                CompassInfoBar(
+                    bearingText = lastPt?.compassShort ?: "---",
+                    altitudeText = "${lastPt?.altitude?.toInt() ?: 0}m",
+                    speedText = "",
+                    distanceText = "${String.format("%.2f", displaySession.totalDistanceKm)} km"
+                )
+
+                // Session metadata row
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        "${displaySession.points.size} pts",
+                        style = CodeSm,
+                        color = OnSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                    Text(
+                        formatDuration(displaySession.startTime, displaySession.endTime),
+                        style = CodeSm,
+                        color = OnSurfaceVariant.copy(alpha = 0.5f)
+                    )
+                    if (!hasSelection && sessions.size > 1) {
+                        Text(
+                            if (isZh) "点击下方选择" else "Tap below to select",
+                            style = CodeSm,
+                            color = Secondary.copy(alpha = 0.5f)
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+            }
+        }
+
+        // Session list header
+        item {
+            Text(
+                if (isZh) "历史轨迹" else "TRACK HISTORY",
+                style = LabelCaps,
+                color = OnSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+            )
+        }
+
+        // Session cards
+        items(sessions) { session ->
+            PlaybackSessionCard(
+                session = session,
+                isSelected = session.id == selectedSessionId,
+                onSelect = {
+                    selectedSessionId = if (selectedSessionId == session.id) -1L else session.id
+                },
+                onDelete = { onDelete(session.id) },
+                onRename = { newName -> onRename(session.id, newName) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun PlaybackSessionCard(
     session: TrackSession,
+    isSelected: Boolean,
+    onSelect: () -> Unit,
     onDelete: () -> Unit,
-    onRename: (String) -> Unit,
-    modifier: Modifier = Modifier
+    onRename: (String) -> Unit
 ) {
     val context = LocalContext.current
     val isZh = LocaleHelper.isZh(context)
@@ -387,22 +432,37 @@ private fun SessionCard(
     var editName by remember(session.name) { mutableStateOf(session.name) }
     var expanded by remember { mutableStateOf(false) }
 
+    val borderColor = if (isSelected) PrimaryFixedDim.copy(alpha = 0.5f) else TileBorder
+    val bgAlpha = if (isSelected) 0.08f else 1f
+
     Box(
-        modifier = modifier
-            .background(TileBackground, RoundedCornerShape(10.dp))
-            .border(1.dp, TileBorder, RoundedCornerShape(10.dp))
-            .clickable { expanded = !expanded }
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 3.dp)
+            .background(if (isSelected) PrimaryContainer.copy(alpha = bgAlpha) else TileBackground, RoundedCornerShape(10.dp))
+            .border(1.dp, borderColor, RoundedCornerShape(10.dp))
+            .clickable { onSelect() }
             .padding(12.dp)
     ) {
         Column {
-            // Header row: name + distance
+            // Header row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (editing) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                // Selection indicator + name
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (isSelected) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .background(PrimaryFixedDim, CircleShape)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                    }
+
+                    if (editing) {
                         Box(
                             modifier = Modifier
                                 .width(140.dp)
@@ -414,30 +474,23 @@ private fun SessionCard(
                                 value = editName,
                                 onValueChange = { editName = it },
                                 textStyle = TextStyle(
-                                    fontFamily = JetBrainsMonoFamily,
-                                    fontSize = 14.sp,
-                                    color = OnSurface
+                                    fontFamily = JetBrainsMonoFamily, fontSize = 14.sp, color = OnSurface
                                 ),
                                 singleLine = true
                             )
                         }
                         Spacer(Modifier.width(6.dp))
                         Text("✓", style = LabelCaps, color = Secondary,
-                            modifier = Modifier.clickable {
-                                onRename(editName)
-                                editing = false
-                            })
+                            modifier = Modifier.clickable { onRename(editName); editing = false })
+                    } else {
+                        Text(
+                            session.name.ifBlank { if (isZh) "记录" else "Track" },
+                            style = TelemetryMd,
+                            color = PrimaryFixedDim,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.clickable { editing = true }
+                        )
                     }
-                } else {
-                    Text(
-                        session.name.ifBlank {
-                            if (isZh) "记录" else "Track"
-                        },
-                        style = TelemetryMd,
-                        color = PrimaryFixedDim,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.clickable { editing = true }
-                    )
                 }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -460,23 +513,15 @@ private fun SessionCard(
                 modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(
-                    "${session.points.size} pts",
-                    style = CodeSm,
-                    color = OnSurfaceVariant.copy(alpha = 0.6f)
-                )
-                Text(
-                    formatDuration(session.startTime, session.endTime),
-                    style = CodeSm,
-                    color = OnSurfaceVariant.copy(alpha = 0.5f)
-                )
+                Text("${session.points.size} pts", style = CodeSm, color = OnSurfaceVariant.copy(alpha = 0.6f))
+                Text(formatDuration(session.startTime, session.endTime), style = CodeSm, color = OnSurfaceVariant.copy(alpha = 0.5f))
             }
 
-            // Expanded: path preview + data columns
+            // Expanded: path preview + data table
             if (expanded && session.points.size >= 2) {
                 Spacer(Modifier.height(8.dp))
 
-                // Path canvas
+                // Mini path canvas
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -513,7 +558,7 @@ private fun SessionCard(
                     }
                 }
 
-                // Columns: time, lat, lng, alt, speed, dir
+                // Data columns
                 Spacer(Modifier.height(8.dp))
                 val previewPts = session.points.takeLast(20)
                 Row(modifier = Modifier.fillMaxWidth()) {
@@ -526,8 +571,7 @@ private fun SessionCard(
                         (if (isZh) "方向" else "Dir") to 0.15f
                     ).forEach { (label, wf) ->
                         Text(label, style = TextStyle(
-                            fontFamily = JetBrainsMonoFamily,
-                            fontSize = 8.sp,
+                            fontFamily = JetBrainsMonoFamily, fontSize = 8.sp,
                             color = OnSurfaceVariant.copy(alpha = 0.4f)
                         ), modifier = Modifier.weight(wf))
                     }
@@ -543,13 +587,23 @@ private fun SessionCard(
                             .zip(listOf(0.2f, 0.18f, 0.18f, 0.14f, 0.15f, 0.15f))
                             .forEach { pair ->
                                 Text(pair.first, style = TextStyle(
-                                    fontFamily = JetBrainsMonoFamily,
-                                    fontSize = 9.sp,
+                                    fontFamily = JetBrainsMonoFamily, fontSize = 9.sp,
                                     color = OnSurfaceVariant.copy(alpha = 0.7f)
                                 ), modifier = Modifier.weight(pair.second), maxLines = 1)
                             }
                     }
                 }
+            }
+
+            // Tap hint
+            if (!expanded) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    if (isZh) "点击查看详情 ▸" else "Tap for details ▸",
+                    style = CodeSm,
+                    color = OnSurfaceVariant.copy(alpha = 0.35f),
+                    modifier = Modifier.clickable { expanded = true }
+                )
             }
         }
     }

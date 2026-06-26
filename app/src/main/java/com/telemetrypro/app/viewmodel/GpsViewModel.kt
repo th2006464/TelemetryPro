@@ -11,6 +11,7 @@ import com.telemetrypro.app.data.GpsFixStatus
 import com.telemetrypro.app.data.GpsRepository
 import com.telemetrypro.app.data.LocationState
 import com.telemetrypro.app.data.NetworkCellInfoProvider
+import com.telemetrypro.app.data.OrientationSensorProvider
 import com.telemetrypro.app.data.TrackRepository
 import com.telemetrypro.app.data.TrackSession
 import kotlinx.coroutines.Dispatchers
@@ -28,6 +29,7 @@ class GpsViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = GpsRepository(application)
     val trackRepository = TrackRepository(application)
     val cellInfoProvider = NetworkCellInfoProvider(application)
+    val orientationProvider = OrientationSensorProvider(application)
     private val prefs = application.getSharedPreferences("telemetry_pro", Context.MODE_PRIVATE)
 
     private val _isOnlineMode = MutableStateFlow(
@@ -72,11 +74,15 @@ class GpsViewModel(application: Application) : AndroidViewModel(application) {
 
     private var lastRecordedTimestamp = 0L
 
+    /** Device compass azimuth (0=N, 90=E) from orientation sensor */
+    val azimuth: StateFlow<Float> = orientationProvider.azimuth
+
     init {
         try {
             repository.onlineMode = _isOnlineMode.value
             monitorNetwork(application)
             observeGpsForTracking()
+            orientationProvider.start()
         } catch (e: Exception) { }
     }
 
@@ -193,5 +199,6 @@ class GpsViewModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() {
         super.onCleared()
         stopMonitoring()
+        orientationProvider.stop()
     }
 }
