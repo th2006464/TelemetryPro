@@ -178,10 +178,20 @@ class GpsViewModel(application: Application) : AndroidViewModel(application) {
     // --- Recording controls ---
     fun startRecording(name: String) {
         trackRepository.startRecording(name)
+        // Auto-enable NMEA logging when recording starts
+        if (!_nmeaLoggingEnabled.value) {
+            _nmeaLoggingEnabled.value = true
+            repository.setNmeaLoggingEnabled(true)
+        }
     }
 
     fun stopRecording() {
         trackRepository.stopRecording()
+        // Auto-disable NMEA logging when recording stops
+        if (_nmeaLoggingEnabled.value) {
+            _nmeaLoggingEnabled.value = false
+            repository.setNmeaLoggingEnabled(false)
+        }
     }
 
     fun markWaypoint(label: String) {

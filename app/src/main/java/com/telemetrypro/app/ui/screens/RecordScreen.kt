@@ -797,6 +797,17 @@ private fun PlaybackSessionCard(
             // Action buttons when selected
             if (isSelected && !isBacktrackingThis) {
                 Spacer(Modifier.height(10.dp))
+
+                // Track preview mini map
+                if (session.points.size >= 2) {
+                    GridMap(
+                        recordedPoints = session.points,
+                        waypoints = session.waypoints,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(10.dp))
+                }
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
